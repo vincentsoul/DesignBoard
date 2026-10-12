@@ -1,0 +1,12 @@
+# Board files are personal content; keep them out of the repository.
+boards/*
+!boards/.gitkeep
+
+# Scratch space, test output, and local deliverables
+work/
+outputs/
+
+node_modules/
+*.tmp
+.DS_Store
+Thumbs.db

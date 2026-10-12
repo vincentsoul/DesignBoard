@@ -1,0 +1,11 @@
+{
+  "name": "figjam-core-whiteboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/model.test.mjs && node tests/sync.test.mjs && node tests/clipboard.test.mjs",
+    "start": "node server.mjs",
+    "mcp": "node mcp-server.mjs"
+  }
+}

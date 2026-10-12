@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f5f4ef" />
+    <title>Canvasroom · FigJam core</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div>
+            <p class="eyebrow">LOCAL WHITEBOARD</p>
+            <div class="board-switcher">
+              <input id="board-name" class="board-name" value="Workshop board" aria-label="画布名称" />
+              <button class="icon-button board-menu-button" id="board-menu-button" type="button" title="切换画布" aria-label="切换画布" aria-haspopup="true" aria-expanded="false"></button>
+              <div class="board-menu" id="board-menu" hidden>
+                <div class="board-menu-header"><span>画布</span><span>boards/</span></div>
+                <ul class="board-list" id="board-list"></ul>
+                <div class="board-menu-actions">
+                  <button type="button" data-board-action="new">新建画布</button>
+                  <button type="button" data-board-action="duplicate">创建副本</button>
+                  <button type="button" class="danger" data-board-action="delete">删除</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <span id="save-status" class="save-status"><i></i> 已保存到本地</span>
+          <button class="icon-button" id="undo-button" title="撤销 (Ctrl/Cmd + Z)" aria-label="撤销"> </button>
+          <button class="icon-button" id="redo-button" title="重做 (Ctrl/Cmd + Shift + Z)" aria-label="重做"> </button>
+          <button class="icon-button" id="paste-button" title="从剪贴板粘贴 (Ctrl/Cmd + V)" aria-label="从剪贴板粘贴"></button>
+          <span class="divider"></span>
+          <button class="text-button" id="import-button"><span>导入</span></button>
+          <button class="text-button accent-button" id="export-json-button"><span>导出 JSON</span></button>
+          <button class="icon-text-button" id="export-png-button" title="导出 PNG"><span>导出 PNG</span></button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="toolrail" aria-label="工具栏">
+          <div class="tool-group">
+            <button class="tool-button active" data-tool="select" title="选择 V" aria-label="选择"></button>
+            <button class="tool-button" data-tool="sticky" title="便签 S" aria-label="便签"></button>
+            <button class="tool-button" data-tool="text" title="文本 T" aria-label="文本"></button>
+            <button class="tool-button" data-tool="shape" title="形状 R" aria-label="形状"></button>
+            <button class="tool-button" data-tool="connector" title="连接线 C" aria-label="连接线"></button>
+            <button class="tool-button" data-tool="pen" title="画笔 P" aria-label="画笔"></button>
+            <button class="tool-button" data-tool="frame" title="区域 F" aria-label="区域"></button>
+            <button class="tool-button" data-tool="image" title="图片 I" aria-label="图片"></button>
+          </div>
+          <div class="toolrail-foot">
+            <button class="tool-button" id="fit-button" title="适应画布" aria-label="适应画布"></button>
+            <button class="tool-button" id="help-button" title="快捷键" aria-label="快捷键">?</button>
+          </div>
+        </aside>
+
+        <section class="canvas-area">
+          <div class="canvas-toolbar">
+            <div class="canvas-context">
+              <span class="context-dot"></span>
+              <span id="selection-count">未选择</span>
+            </div>
+            <div class="zoom-controls">
+              <button class="mini-button" id="zoom-out" aria-label="缩小">−</button>
+              <span id="zoom-value">100%</span>
+              <button class="mini-button" id="zoom-in" aria-label="放大">+</button>
+            </div>
+          </div>
+          <div id="board-viewport" class="board-viewport" tabindex="0">
+            <svg id="svg-layer" class="svg-layer" aria-hidden="true">
+              <defs>
+                <marker id="arrow-end" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+                  <path d="M0 0 L8 4 L0 8 Z" fill="#344554"></path>
+                </marker>
+                <marker id="arrow-selected" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+                  <path d="M0 0 L8 4 L0 8 Z" fill="#ef755e"></path>
+                </marker>
+              </defs>
+              <g id="svg-world"></g>
+            </svg>
+            <div id="world" class="world"></div>
+            <div id="selection-layer" class="selection-layer"></div>
+            <div id="marquee" class="marquee" hidden></div>
+            <div class="empty-state" id="empty-state">
+              <div class="empty-kicker">A QUIET PLACE TO THINK</div>
+              <h1>把想法放到画布上。</h1>
+              <p>从一张便签开始，建立你的下一次工作坊。</p>
+              <button class="empty-cta" data-tool="sticky">创建第一张便签 <span>↗</span></button>
+            </div>
+          </div>
+          <div class="canvas-hint"><span>空格</span> 平移画布 <span>滚轮</span> 缩放 <span>双击</span> 编辑</div>
+        </section>
+
+        <aside class="inspector" id="inspector" aria-label="属性面板">
+          <div class="inspector-header">
+            <div>
+              <p class="eyebrow">INSPECTOR</p>
+              <h2>属性</h2>
+            </div>
+            <button id="close-inspector" class="mobile-only icon-button" aria-label="关闭属性"></button>
+          </div>
+          <div class="inspector-empty" id="inspector-empty">
+            <div class="inspector-empty-icon">✦</div>
+            <p>选择画布中的元素<br />查看它的属性</p>
+          </div>
+          <div id="inspector-content" hidden>
+            <section class="inspector-section">
+              <div class="section-title"><span>外观</span><span id="inspector-type" class="type-label"></span></div>
+              <div class="control-row color-row"><span>填充</span><div class="swatches" id="fill-swatches"></div></div>
+              <div class="control-row color-row"><span>边框</span><div class="swatches" id="stroke-swatches"></div></div>
+              <label class="range-row"><span>透明度</span><input id="opacity-control" type="range" min="0.2" max="1" step="0.05" value="1" /><output id="opacity-value">100%</output></label>
+            </section>
+            <section class="inspector-section text-controls" id="text-controls">
+              <div class="section-title"><span>文字</span></div>
+              <div class="button-row"><button class="format-button" data-format="bold"><strong>B</strong></button><button class="format-button" data-format="align-left">左</button><button class="format-button" data-format="align-center">中</button><button class="format-button" data-format="align-right">右</button></div>
+              <label class="select-row"><span>字号</span><select id="font-size-control"><option value="16">16</option><option value="20">20</option><option value="24">24</option><option value="32">32</option><option value="40">40</option></select></label>
+            </section>
+            <section class="inspector-section">
+              <div class="section-title"><span>排列</span></div>
+              <div class="action-grid"><button data-action="front">置顶</button><button data-action="forward">前移</button><button data-action="backward">后移</button><button data-action="back">置底</button></div>
+              <div class="action-grid"><button data-action="group">组合</button><button data-action="ungroup">取消组合</button><button data-action="lock">锁定</button><button data-action="unlock">解锁</button></div>
+            </section>
+            <button class="delete-button" id="delete-button">删除所选元素</button>
+          </div>
+        </aside>
+      </main>
+    </div>
+    <input id="image-input" type="file" accept="image/*" hidden />
+    <input id="json-input" type="file" accept="application/json,.json" multiple hidden />
+    <div id="toast-region" class="toast-region" aria-live="polite"></div>
+    <dialog id="shortcuts-dialog" class="shortcuts-dialog">
+      <button class="dialog-close" id="close-shortcuts" aria-label="关闭">×</button>
+      <p class="eyebrow">QUICK REFERENCE</p><h2>快捷键</h2>
+      <div class="shortcut-list"><span>V</span> 选择工具 <span>S</span> 便签 <span>T</span> 文本 <span>R</span> 形状 <span>空格</span> 平移画布 <span>⌘ / Ctrl + Z</span> 撤销 <span>⌘ / Ctrl + C</span> 复制 <span>⌘ / Ctrl + V</span> 粘贴 <span>⌘ / Ctrl + D</span> 复制一份</div>
+    </dialog>
+    <script type="module" src="src/board.js"></script>
+  </body>
+</html>
