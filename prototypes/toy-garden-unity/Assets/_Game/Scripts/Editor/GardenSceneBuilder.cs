@@ -12,7 +12,7 @@ using UnityEngine.SceneManagement;
 namespace ToyGarden.Editor
 {
     /// <summary>Rebuilds the editable, original-art prototype from deterministic geometry.</summary>
-    public static class GardenSceneBuilder
+    public static partial class GardenSceneBuilder
     {
         public const string ScenePath = "Assets/_Game/Scenes/ToyGarden.unity";
         const string AssetRoot = "Assets/_Game";
@@ -27,70 +27,7 @@ namespace ToyGarden.Editor
         [MenuItem("Toy Garden/Rebuild Prototype Scene")]
         public static void Build()
         {
-            EnsureFolder(AssetRoot + "/Scenes");
-            EnsureFolder(AssetRoot + "/Materials");
-            EnsureFolder(AssetRoot + "/Meshes");
-            EnsureFolder(AssetRoot + "/Prefabs");
-            random = new System.Random(1847);
-            materials.Clear();
-            meshes.Clear();
-            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            environment = new GameObject("ENVIRONMENT · Windmill Orchard").transform;
-            Palette();
-            BuildGround();
-            BuildPaths();
-            BuildBorders();
-            BuildScenery();
-            BuildWindmill(new Vector3(27, 3, 6));
-
-            GameObject gameObject = new GameObject("GAME · Party Adventure");
-            GardenGame game = gameObject.AddComponent<GardenGame>();
-            game.encounterOneCenter = new Vector3(-10, 0, -5);
-            game.encounterTwoCenter = new Vector3(20, ArenaFloor, 19);
-            game.encounterOneRadius = 11;
-            game.encounterTwoRadius = 12;
-            game.exitPosition = new Vector3(0, ExitFloor, 24);
-            game.chestPosition = new Vector3(-24, 0, 9);
-            game.chestLid = BuildChest(game.chestPosition);
-            game.exitGate = BuildExit(game.exitPosition);
-            // Serialized references keep these runtime-created effects' shaders in player builds.
-            game.projectileMaterial = EffectMaterial("Projectile", "Universal Render Pipeline/Unlit");
-            game.effectMaterial = EffectMaterial("Effect", "Universal Render Pipeline/Particles/Unlit");
-
-            // Bake only world colliders, before any actors exist. Decorative meshes are excluded.
-            NavMeshSurface surface = environment.gameObject.AddComponent<NavMeshSurface>();
-            surface.collectObjects = CollectObjects.Children;
-            surface.layerMask = 1 << 0;
-            surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
-            surface.overrideVoxelSize = true;
-            surface.voxelSize = 0.12f;
-            surface.BuildNavMesh();
-            if (surface.navMeshData == null)
-                throw new InvalidOperationException("The garden NavMesh failed to bake.");
-            string navPath = AssetRoot + "/Scenes/ToyGardenNavMesh.asset";
-            if (AssetDatabase.LoadAssetAtPath<NavMeshData>(navPath) != null)
-                AssetDatabase.DeleteAsset(navPath);
-            AssetDatabase.CreateAsset(surface.navMeshData, navPath);
-            ValidateNavigation();
-
-            Transform party = new GameObject("PARTY · Three Switchable Heroes").transform;
-            CreateActor(ActorKind.Blade, new Vector3(-19, 0.05f, -18), 0, party);
-            CreateActor(ActorKind.Hammer, new Vector3(-21, 0.05f, -20), 0, party);
-            CreateActor(ActorKind.Ranger, new Vector3(-17, 0.05f, -20), 0, party);
-            Transform enemies = new GameObject("ENEMIES · Two Encounters").transform;
-            CreateActor(ActorKind.Grunt, new Vector3(-13, 0.05f, -5), 1, enemies);
-            CreateActor(ActorKind.Grunt, new Vector3(-8, 0.05f, -3), 1, enemies);
-            CreateActor(ActorKind.Grunt, new Vector3(-11, 0.05f, 1), 1, enemies);
-            CreateActor(ActorKind.Spitter, new Vector3(-5, 0.05f, 2), 1, enemies);
-            CreateActor(ActorKind.Boss, new Vector3(20, ArenaFloor + 0.05f, 22), 2, enemies);
-            LightingAndCamera();
-
-            EditorSceneManager.MarkSceneDirty(scene);
-            EditorSceneManager.SaveScene(scene, ScenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            Debug.Log("Toy Garden scene, reusable art assets and baked NavMesh saved to " + ScenePath);
+            BuildChapter();
         }
 
         static void Palette()
@@ -452,9 +389,15 @@ namespace ToyGarden.Editor
             visual.localScale = Vector3.one * scale;
             foreach (Transform child in actor.GetComponentsInChildren<Transform>(true)) child.gameObject.layer = 8;
             string prefabPath = AssetRoot + "/Prefabs/" + kind + ".prefab";
+            // Encounter membership belongs to the scene instance. Rebuilding the reusable
+            // Grunt prefab for a later district must not migrate earlier enemies to it.
+            component.encounterId = 0;
             PrefabUtility.SaveAsPrefabAssetAndConnect(actor, prefabPath, InteractionMode.AutomatedAction);
+            component.encounterId = encounterId;
+            PrefabUtility.RecordPrefabInstancePropertyModifications(component);
             actor.transform.SetParent(parent, false);
             actor.transform.position = position;
+            PrefabUtility.RecordPrefabInstancePropertyModifications(actor.transform);
         }
 
         static void LightingAndCamera()

@@ -22,8 +22,10 @@ namespace ToyGarden
         public List<GardenActor> Heroes { get; private set; } = new();
         public List<GardenActor> Enemies { get; private set; } = new();
         public GardenActor ActiveHero { get; private set; }
-        public bool IsPlaying => !Paused && !GameOver && !Won;
-        public bool IsCombatActive => activeEncounters[1] || activeEncounters[2];
+        public GardenChapter Chapter { get; private set; }
+        public bool MapOpen { get; private set; }
+        public bool IsPlaying => !Paused && !MapOpen && !GameOver && !Won;
+        public bool IsCombatActive => activeEncounters.Any(active => active);
         public bool Paused { get; private set; }
         public bool GameOver { get; private set; }
         public bool Won { get; private set; }
@@ -31,15 +33,17 @@ namespace ToyGarden
         public bool AcceptPlayerInput { get; set; } = true;
         public float Elapsed { get; private set; }
         public string Message => Time.unscaledTime < messageUntil ? message : "";
-        public int ClearedCount => (clearedEncounters[1] ? 1 : 0) + (clearedEncounters[2] ? 1 : 0);
+        public int TotalEncounters => Chapter != null ? Chapter.encounters.Length : 2;
+        public int ClearedCount => clearedEncounters.Count(cleared => cleared);
         public string Objective => Won ? "The windmill path is clear." : GameOver ? "Your party has fallen." :
+            Chapter != null ? Chapter.Objective :
             !clearedEncounters[1] ? "Clear the garden plaza" : !clearedEncounters[2] ?
             "Climb the ramp and defeat the windmill guardian" : "Reach the exit arch and press E";
 
-        readonly bool[] activeEncounters = new bool[3];
-        readonly bool[] clearedEncounters = new bool[3];
+        readonly bool[] activeEncounters = new bool[32];
+        readonly bool[] clearedEncounters = new bool[32];
         InputActionMap inputs;
-        InputAction move, attack, dodge, skill, switchNext, interact, pause, restart;
+        InputAction move, attack, dodge, skill, switchNext, interact, pause, restart, map;
         string message;
         float messageUntil;
         Quaternion closedLid;
@@ -59,10 +63,12 @@ namespace ToyGarden
                 ActiveHero.IsPlayerControlled = true;
             }
             if (chestLid != null) closedLid = chestLid.localRotation;
+            Chapter = GetComponent<GardenChapter>();
+            Chapter?.Initialize(this);
             ConfigureInput();
             if (!TryGetComponent<GardenCameraRig>(out _)) gameObject.AddComponent<GardenCameraRig>();
             if (!TryGetComponent<GardenHUD>(out _)) gameObject.AddComponent<GardenHUD>();
-            ShowMessage("Explore the garden. Your companions will follow.", 5);
+            ShowMessage(Chapter != null ? "Windmill Valley. E to interact, M for the chapter map." : "Explore the garden. Your companions will follow.", 5);
         }
 
         void ConfigureInput()
@@ -80,6 +86,7 @@ namespace ToyGarden
             interact = Button("Interact", "<Keyboard>/e", "<Gamepad>/buttonNorth");
             pause = Button("Pause", "<Keyboard>/escape", "<Gamepad>/start");
             restart = Button("Restart", "<Keyboard>/r", "<Gamepad>/select");
+            map = Button("Map", "<Keyboard>/m", "<Gamepad>/rightShoulder");
             inputs.Enable();
         }
 
@@ -93,7 +100,16 @@ namespace ToyGarden
 
         void Update()
         {
-            if (AcceptPlayerInput && pause.WasPressedThisFrame()) TogglePause();
+            if (AcceptPlayerInput && map.WasPressedThisFrame() && !Paused && !GameOver && !Won)
+            {
+                MapOpen = !MapOpen;
+                foreach (var hero in Heroes) hero.SetMoveInput(Vector3.zero);
+            }
+            if (AcceptPlayerInput && pause.WasPressedThisFrame())
+            {
+                if (MapOpen) MapOpen = false;
+                else TogglePause();
+            }
             if (AcceptPlayerInput && (GameOver || Won) && restart.WasPressedThisFrame()) RestartGame();
             if (!IsPlaying || ActiveHero == null) return;
             Elapsed += Time.deltaTime;
@@ -112,10 +128,14 @@ namespace ToyGarden
                 if (attack.WasPressedThisFrame() && !PointerOverPartyCards()) ActiveHero.TryAttack();
                 if (interact.WasPressedThisFrame()) TryInteract();
             }
-            if (!clearedEncounters[1] && FlatDistance(ActiveHero.transform.position, encounterOneCenter) < encounterOneRadius - 1)
-                ActivateEncounter(1);
-            if (clearedEncounters[1] && !clearedEncounters[2] && FlatDistance(ActiveHero.transform.position, encounterTwoCenter) < encounterTwoRadius - 1)
-                ActivateEncounter(2);
+            if (Chapter != null) Chapter.TickChapter();
+            else
+            {
+                if (!clearedEncounters[1] && FlatDistance(ActiveHero.transform.position, encounterOneCenter) < encounterOneRadius - 1)
+                    ActivateEncounter(1);
+                if (clearedEncounters[1] && !clearedEncounters[2] && FlatDistance(ActiveHero.transform.position, encounterTwoCenter) < encounterTwoRadius - 1)
+                    ActivateEncounter(2);
+            }
             if (ActiveHero.transform.position.y < -5)
             {
                 ActiveHero.Teleport(ActiveHero.HomePosition);
@@ -124,13 +144,16 @@ namespace ToyGarden
         }
 
         public bool IsEncounterActive(int id) => id > 0 && id < activeEncounters.Length && activeEncounters[id];
+        public bool IsEncounterCleared(int id) => id > 0 && id < clearedEncounters.Length && clearedEncounters[id];
 
         public void ActivateEncounter(int id)
         {
-            if (!IsPlaying || id < 1 || id > 2 || activeEncounters[id] || clearedEncounters[id]) return;
-            if (id == 2 && !clearedEncounters[1]) return;
+            if (!IsPlaying || id < 1 || id > TotalEncounters || activeEncounters[id] || clearedEncounters[id]) return;
+            if (Chapter != null && !Chapter.CanActivateEncounter(id)) return;
+            if (Chapter == null && id == 2 && !clearedEncounters[1]) return;
             activeEncounters[id] = true;
-            ShowMessage(id == 1 ? "Garden skirmish - dodge the warning rings!" : "Windmill guardian - watch the wind-up!", 4);
+            ShowMessage(Chapter != null ? $"Encounter {id}/{TotalEncounters} - watch the warning rings!" :
+                id == 1 ? "Garden skirmish - dodge the warning rings!" : "Windmill guardian - watch the wind-up!", 4);
         }
 
         public bool SwitchHero(int direction = 1)
@@ -166,12 +189,14 @@ namespace ToyGarden
             if (actor.IsEnemy)
             {
                 int id = actor.encounterId;
-                if (id > 0 && id < 3 && !Enemies.Any(e => e.encounterId == id && e.IsAlive))
+                if (id > 0 && id < activeEncounters.Length && !Enemies.Any(e => e.encounterId == id && e.IsAlive))
                 {
                     activeEncounters[id] = false;
                     clearedEncounters[id] = true;
-                    ShowMessage(id == 1 ? "Plaza clear! Follow the ramp to the orchard." : "Guardian defeated! The exit is open.", 5);
-                    if (ClearedCount == 2 && exitGate != null) exitGate.gameObject.SetActive(false);
+                    ShowMessage(Chapter != null ? $"Area clear! {ClearedCount}/{TotalEncounters} encounters complete." :
+                        id == 1 ? "Plaza clear! Follow the ramp to the orchard." : "Guardian defeated! The exit is open.", 5);
+                    if (Chapter != null) Chapter.TickChapter();
+                    else if (ClearedCount == 2 && exitGate != null) exitGate.gameObject.SetActive(false);
                 }
             }
             else
@@ -190,6 +215,7 @@ namespace ToyGarden
             get
             {
                 if (ActiveHero == null || !IsPlaying) return "";
+                if (Chapter != null) return Chapter.InteractionHint;
                 if (!HasChest && Vector3.Distance(ActiveHero.transform.position, chestPosition) < 3.5f) return "E / Y  -  Open supply chest";
                 if (Vector3.Distance(ActiveHero.transform.position, exitPosition) < 4)
                     return ClearedCount == 2 ? "E / Y  -  Leave the garden" : "Clear both encounters to open the exit";
@@ -200,6 +226,7 @@ namespace ToyGarden
         public bool TryInteract()
         {
             if (!IsPlaying || ActiveHero == null) return false;
+            if (Chapter != null) return Chapter.TryInteract();
             if (!HasChest && Vector3.Distance(ActiveHero.transform.position, chestPosition) < 3.5f)
             {
                 HasChest = true;
@@ -224,6 +251,13 @@ namespace ToyGarden
             foreach (var hero in Heroes) hero.SetMoveInput(Vector3.zero);
         }
 
+        public void CompleteAdventure()
+        {
+            if (!IsPlaying || (Chapter != null && !Chapter.CanExit)) return;
+            Won = true;
+            foreach (var hero in Heroes) hero.SetMoveInput(Vector3.zero);
+        }
+
         void OnApplicationFocus(bool focused)
         {
             if (!focused && AcceptPlayerInput && !GameOver && !Won) Paused = true;
@@ -231,7 +265,7 @@ namespace ToyGarden
 
         public void RestartGame()
         {
-            Paused = GameOver = Won = HasChest = false;
+            Paused = GameOver = Won = HasChest = MapOpen = false;
             Elapsed = 0;
             System.Array.Clear(activeEncounters, 0, activeEncounters.Length);
             System.Array.Clear(clearedEncounters, 0, clearedEncounters.Length);
@@ -245,6 +279,7 @@ namespace ToyGarden
             if (ActiveHero != null) ActiveHero.IsPlayerControlled = true;
             if (exitGate != null) exitGate.gameObject.SetActive(true);
             if (chestLid != null) chestLid.localRotation = closedLid;
+            Chapter?.ResetChapter();
             ShowMessage("A fresh start. Explore the garden.", 3);
         }
 

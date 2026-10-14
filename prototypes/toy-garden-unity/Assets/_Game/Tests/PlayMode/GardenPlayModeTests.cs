@@ -14,6 +14,7 @@ namespace ToyGarden.Tests
     public class GardenPlayModeTests
     {
         GardenGame game;
+        GardenChapter chapter;
         Keyboard testKeyboard;
         InputSettings originalInputSettings, isolatedInputSettings;
         bool originalRunInBackground;
@@ -27,6 +28,8 @@ namespace ToyGarden.Tests
             Assert.IsNotNull(game);
             game.AcceptPlayerInput = false;
             game.RestartGame();
+            chapter = game.Chapter;
+            Assert.IsNotNull(chapter, "The chapter component must be wired into the game.");
             yield return null;
         }
 
@@ -46,59 +49,82 @@ namespace ToyGarden.Tests
         }
 
         [UnityTest]
-        public IEnumerator MapConnectsSpawnChestUpperArenaAndExit()
+        public IEnumerator RestoredChapterConnectsEveryRegionMechanismAndExit()
         {
+            FreezeForLogic();
             Assert.AreEqual(3, game.Heroes.Count);
-            Assert.AreEqual(5, game.Enemies.Count);
+            Assert.AreEqual(8, chapter.regions.Length);
+            Assert.AreEqual(6, game.TotalEncounters);
+            Assert.AreEqual(7, chapter.Puzzles.Count);
+            Assert.AreEqual(8, chapter.Gates.Count);
+            Assert.AreEqual(23, game.Enemies.Count);
+            foreach (var encounter in chapter.encounters)
+                Assert.IsTrue(game.Enemies.Any(enemy => enemy.encounterId == encounter.id),
+                    $"Encounter {encounter.id} has no enemies.");
             Assert.IsNotNull(Camera.main);
-            Assert.IsNotNull(game.projectileMaterial, "Projectile material must be referenced by the scene for player builds.");
-            Assert.IsNotNull(game.effectMaterial, "Warning-ring material must be referenced by the scene for player builds.");
-            Assert.IsTrue(NavMesh.SamplePosition(game.ActiveHero.transform.position, out var start, 2, NavMesh.AllAreas));
-            foreach (var destination in new[] { game.encounterOneCenter, game.chestPosition, new Vector3(22, 3, -5), game.encounterTwoCenter, game.exitPosition + Vector3.right * 2 })
+            Assert.IsNotNull(game.projectileMaterial);
+            Assert.IsNotNull(game.effectMaterial);
+            RestoreChapter(); // Every gate opens through its real puzzle and encounter requirements.
+            yield return new WaitForSeconds(.3f); // Allow carving obstacles to leave the navigation world.
+            Assert.IsTrue(chapter.Gates.All(gate => gate.IsOpen));
+            Assert.IsTrue(NavMesh.SamplePosition(game.Heroes[0].HomePosition, out var start, 2f, NavMesh.AllAreas));
+            var destinations = chapter.regions.Select(region => region.center)
+                .Concat(chapter.Gates.SelectMany(gate => new[] { gate.before, gate.after }))
+                .Concat(chapter.Mechanisms.Where(item => item.kind == MechanismKind.Chest || item.kind == MechanismKind.Exit)
+                    .Select(item => item.transform.position));
+            foreach (Vector3 destination in destinations)
             {
-                Assert.IsTrue(NavMesh.SamplePosition(destination, out var goal, 3, NavMesh.AllAreas), $"Missing navmesh near {destination}");
+                Assert.IsTrue(NavMesh.SamplePosition(destination, out var goal, 3f, NavMesh.AllAreas),
+                    $"Missing navigation near chapter destination {destination}");
                 var path = new NavMeshPath();
                 Assert.IsTrue(NavMesh.CalculatePath(start.position, goal.position, NavMesh.AllAreas, path));
-                Assert.AreEqual(NavMeshPathStatus.PathComplete, path.status, $"Disconnected route to {destination}");
+                Assert.AreEqual(NavMeshPathStatus.PathComplete, path.status, $"Disconnected chapter route to {destination}");
             }
-            yield return null;
         }
 
         [UnityTest]
-        public IEnumerator PartyActuallyWalksFromEntryUpRamp()
+        public IEnumerator PartyActuallyWalksAcrossTheWaterworksRamp()
         {
-            game.enabled = false; // Drive movement directly, keeping encounters dormant for this navigation check.
+            game.enabled = false;
+            SolvePuzzle(0);
+            SolvePuzzle(1);
+            ClearEncounter(1);
+            foreach (var enemy in game.Enemies) enemy.enabled = false;
             var hero = game.ActiveHero;
-            Assert.IsTrue(NavMesh.SamplePosition(hero.transform.position, out var start, 2, NavMesh.AllAreas));
-            Assert.IsTrue(NavMesh.SamplePosition(new Vector3(22, 3, -5), out var goal, 2, NavMesh.AllAreas));
+            hero.Teleport(new Vector3(14f, .05f, 60f));
+            game.Heroes[1].Teleport(new Vector3(11f, .05f, 58f));
+            game.Heroes[2].Teleport(new Vector3(11f, .05f, 62f));
+            yield return new WaitForSeconds(.3f);
+            Assert.IsTrue(NavMesh.SamplePosition(hero.transform.position, out var start, 2f, NavMesh.AllAreas));
+            Assert.IsTrue(NavMesh.SamplePosition(new Vector3(50f, 2f, 60f), out var goal, 2f, NavMesh.AllAreas));
             var path = new NavMeshPath();
             NavMesh.CalculatePath(start.position, goal.position, NavMesh.AllAreas, path);
             Assert.AreEqual(NavMeshPathStatus.PathComplete, path.status);
-            var previousPositions = game.Heroes.ToDictionary(member => member, member => member.transform.position);
-            float previousSampleTime = Time.time;
+            var previous = game.Heroes.ToDictionary(member => member, member => member.transform.position);
+            float previousTime = Time.time;
             int corner = 1;
-            float end = Time.time + 25;
-            while (corner < path.corners.Length && Time.time < end)
+            float deadline = Time.time + 20f;
+            while (corner < path.corners.Length && Time.time < deadline)
             {
-                var delta = path.corners[corner] - hero.transform.position;
-                delta.y = 0;
+                Vector3 delta = path.corners[corner] - hero.transform.position;
+                delta.y = 0f;
                 if (delta.magnitude < .5f) corner++;
                 else hero.SetMoveInput(delta.normalized);
                 yield return null;
-                AssertContinuousPartyMovement(previousPositions, ref previousSampleTime);
+                AssertContinuousPartyMovement(previous, ref previousTime);
             }
             hero.SetMoveInput(Vector3.zero);
-            Assert.Less(GardenGame.FlatDistance(hero.transform.position, goal.position), 1.2f, "Player failed to traverse the baked route.");
-            float regroupUntil = Time.time + 5;
-            while (Time.time < regroupUntil)
+            Assert.Less(GardenGame.FlatDistance(hero.transform.position, goal.position), 1.2f);
+            deadline = Time.time + 5f;
+            while (Time.time < deadline)
             {
                 yield return null;
-                AssertContinuousPartyMovement(previousPositions, ref previousSampleTime);
+                AssertContinuousPartyMovement(previous, ref previousTime);
             }
             foreach (var member in game.Heroes)
             {
-                Assert.Greater(member.transform.position.y, 2.7f, $"{member.kind} did not reach the upper terrace.");
-                Assert.Less(GardenGame.FlatDistance(member.transform.position, hero.transform.position), 5, $"{member.kind} was left behind.");
+                Assert.Greater(member.transform.position.y, 1.7f, $"{member.kind} did not reach Waterworks.");
+                Assert.Less(GardenGame.FlatDistance(member.transform.position, hero.transform.position), 5f);
             }
         }
 
@@ -106,6 +132,7 @@ namespace ToyGarden.Tests
         public IEnumerator SwingHitsOnceAndDodgeBlocksOnlyDuringItsWindow()
         {
             game.enabled = false;
+            SolvePuzzle(0);
             game.ActivateEncounter(1);
             var hero = game.ActiveHero;
             var enemy = game.Enemies.First(e => e.kind == ActorKind.Grunt && e.encounterId == 1);
@@ -232,10 +259,30 @@ namespace ToyGarden.Tests
             QueueKeys();
             yield return null;
 
+            yield return TapKey(Key.M);
+            Assert.IsTrue(game.MapOpen, "M must open the chapter map.");
+            Assert.IsFalse(game.IsPlaying, "The map must suspend gameplay.");
+            var mapPositions = game.Heroes.Concat(game.Enemies)
+                .ToDictionary(actor => actor, actor => actor.transform.position);
+            float mapElapsed = game.Elapsed;
+            QueueKeys(Key.W);
+            yield return new WaitForSecondsRealtime(.25f);
+            foreach (var sample in mapPositions)
+                Assert.Less(Vector3.Distance(sample.Key.transform.position, sample.Value), .001f,
+                    $"{sample.Key.kind} moved while the map was open.");
+            Assert.AreEqual(mapElapsed, game.Elapsed, .001f, "Map viewing must stop elapsed game time.");
+            QueueKeys();
+            yield return null;
+            yield return TapKey(Key.Escape);
+            Assert.IsFalse(game.MapOpen, "Escape must close the map.");
+            Assert.IsFalse(game.Paused, "Closing the map must not also pause the game.");
+            Assert.IsTrue(game.IsPlaying, "Closing the map must resume gameplay.");
+
             game.RestartGame();
             yield return null;
             Assert.IsFalse(game.IsEncounterActive(1));
-            game.ActiveHero.Teleport(game.encounterOneCenter);
+            SolvePuzzle(0);
+            game.ActiveHero.Teleport(chapter.encounters.First(item => item.id == 1).center);
             yield return WaitForState(() => game.IsEncounterActive(1), 2f,
                 "Entering the plaza must activate the encounter through Game.Update.");
             foreach (var member in game.Heroes.ToArray())
@@ -284,33 +331,286 @@ namespace ToyGarden.Tests
         }
 
         [UnityTest]
-        public IEnumerator EncountersChestVictoryAndReplayCompleteTheLoop()
+        public IEnumerator AllPuzzlesBattlesSuppliesExitAndRestartCompleteTheChapter()
         {
-            game.enabled = false;
-            Assert.IsFalse(game.TryInteract());
-            game.ActivateEncounter(1);
-            foreach (var enemy in game.Enemies.Where(e => e.encounterId == 1)) enemy.TakeDamage(10000, Vector3.zero);
-            Assert.AreEqual(1, game.ClearedCount);
-            game.ActivateEncounter(2);
-            foreach (var enemy in game.Enemies.Where(e => e.encounterId == 2)) enemy.TakeDamage(10000, Vector3.zero);
-            Assert.AreEqual(2, game.ClearedCount);
-            Assert.IsFalse(game.exitGate.gameObject.activeSelf);
-            game.ActiveHero.Teleport(game.chestPosition);
-            game.ActiveHero.TakeDamage(20, Vector3.zero);
-            Assert.IsTrue(game.TryInteract());
-            Assert.IsTrue(game.HasChest);
-            Assert.AreEqual(game.ActiveHero.MaxHealth, game.ActiveHero.Health);
-            Assert.IsFalse(game.TryInteract(), "The chest reward must only be given once.");
-            game.ActiveHero.Teleport(game.exitPosition);
+            FreezeForLogic();
+            var exit = chapter.Mechanisms.Single(item => item.kind == MechanismKind.Exit);
+            game.ActiveHero.Teleport(exit.transform.position + Vector3.back * 1.5f);
+            Assert.IsFalse(game.TryInteract(), "The summit exit must refuse an incomplete chapter.");
+            Assert.IsFalse(game.Won);
+            for (int id = 2; id <= game.TotalEncounters; id++)
+            {
+                game.ActivateEncounter(id);
+                Assert.IsFalse(game.IsEncounterActive(id), $"Encounter {id} activated before its route opened.");
+            }
+            RestoreChapter();
+            Assert.AreEqual(7, chapter.SolvedCount);
+            Assert.AreEqual(6, game.ClearedCount);
+            Assert.IsTrue(chapter.CanExit);
+            Assert.IsTrue(chapter.Gates.All(gate => gate.IsOpen));
+            foreach (var supply in chapter.Mechanisms.Where(item => item.kind == MechanismKind.Chest))
+            {
+                game.ActiveHero.Teleport(supply.transform.position + Vector3.back * 1.5f);
+                Assert.IsTrue(game.TryInteract(), $"Cannot collect {supply.name}");
+                Assert.IsTrue(supply.Used);
+            }
+            Assert.Greater(chapter.SupplyCount, 0);
+            game.ActiveHero.Teleport(exit.transform.position + Vector3.back * 1.5f);
             Assert.IsTrue(game.TryInteract());
             Assert.IsTrue(game.Won);
             game.RestartGame();
             Assert.IsFalse(game.Won);
-            Assert.IsFalse(game.HasChest);
+            Assert.IsFalse(chapter.CanExit);
             Assert.AreEqual(0, game.ClearedCount);
-            Assert.IsTrue(game.exitGate.gameObject.activeSelf);
-            Assert.IsTrue(game.Enemies.All(e => e.IsAlive));
+            Assert.AreEqual(0, chapter.SolvedCount);
+            Assert.AreEqual(0, chapter.SupplyCount);
+            Assert.IsTrue(chapter.Gates.All(gate => !gate.IsOpen && gate.barrier.gameObject.activeSelf));
+            Assert.IsTrue(game.Enemies.All(enemy => enemy.IsAlive));
+            Assert.IsTrue(game.Heroes.All(hero => hero.IsAlive && hero.Health == hero.MaxHealth));
+            foreach (var puzzle in chapter.Puzzles)
+            {
+                Assert.IsFalse(puzzle.Solved);
+                Assert.AreEqual(puzzle.crateStart, puzzle.CrateCell);
+                Assert.IsTrue(puzzle.Values.All(value => value == 0));
+                Assert.AreEqual(0, puzzle.SequenceProgress);
+            }
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator GatesRequireBothConditionsAndPhysicallyBlockThePlayer()
+        {
+            game.enabled = false;
+            foreach (var actor in game.Enemies.Concat(game.Heroes.Where(hero => hero != game.ActiveHero))) actor.enabled = false;
+            var entry = chapter.Gates.Single(gate => gate.id == 0);
+            var hero = game.ActiveHero;
+            hero.Teleport(entry.before);
+            Vector3 direction = entry.after - entry.before;
+            direction.y = 0f;
+            direction.Normalize();
+            Physics.SyncTransforms();
+            var hits = Physics.RaycastAll(entry.before + Vector3.up * .8f, direction,
+                GardenGame.FlatDistance(entry.before, entry.after), ~0, QueryTriggerInteraction.Ignore);
+            Assert.IsTrue(hits.Any(hit => hit.transform.IsChildOf(entry.barrier)), "Closed gate needs a real collision barrier.");
+            hero.SetMoveInput(direction);
+            yield return new WaitForSeconds(1.5f);
+            hero.SetMoveInput(Vector3.zero);
+            Assert.Less(Vector3.Dot(hero.transform.position - entry.barrier.position, direction), .2f,
+                "The closed entry gate allowed the CharacterController through.");
+            SolvePuzzle(0);
+            Assert.IsTrue(entry.IsOpen);
+            Assert.IsFalse(entry.barrier.gameObject.activeSelf);
+            hero.Teleport(entry.before);
+            float deadline = Time.time + 5f;
+            while (GardenGame.FlatDistance(hero.transform.position, entry.after) > .6f && Time.time < deadline)
+            {
+                hero.SetMoveInput(direction);
+                yield return null;
+            }
+            hero.SetMoveInput(Vector3.zero);
+            Assert.Less(GardenGame.FlatDistance(hero.transform.position, entry.after), .8f,
+                "Opening the gate must allow the player to walk through it.");
+            SolvePuzzle(1);
+            Assert.IsFalse(chapter.IsGateOpen(1), "Solving the block alone must not bypass the orchard battle.");
+            ClearEncounter(1);
+            Assert.IsTrue(chapter.IsGateOpen(1));
+            ClearEncounter(2);
+            Assert.IsFalse(chapter.IsGateOpen(2), "Clearing a battle alone must not bypass its dial puzzle.");
+            SolvePuzzle(2);
+            Assert.IsTrue(chapter.IsGateOpen(2));
+        }
+
+        [UnityTest]
+        public IEnumerator PushBlocksRejectWallsBoundsAndSupportResetBeforeSolving()
+        {
+            FreezeForLogic();
+            foreach (int id in new[] { 1, 3 })
+            {
+                var puzzle = chapter.Puzzles.Single(item => item.id == id);
+                var crate = Mechanism(id, MechanismKind.Crate);
+                var reset = Mechanism(id, MechanismKind.ResetCrate);
+                Vector2Int blockedDirection = id == 1 ? Vector2Int.right : Vector2Int.up;
+                var start = puzzle.CrateCell;
+                Assert.IsFalse(ActivateFrom(crate, puzzle.CellPosition(start - blockedDirection)),
+                    $"Puzzle {id} pushed a block through a stone.");
+                Assert.AreEqual(start, puzzle.CrateCell);
+                if (id == 3)
+                {
+                    Assert.IsTrue(ActivateFrom(crate, puzzle.CellPosition(start + Vector2Int.right)));
+                    Assert.AreEqual(new Vector2Int(0, 1), puzzle.CrateCell);
+                    Assert.IsFalse(ActivateFrom(crate, puzzle.CellPosition(new Vector2Int(1, 1))),
+                        "A block must not leave the board.");
+                    Assert.AreEqual(new Vector2Int(0, 1), puzzle.CrateCell);
+                }
+                else
+                {
+                    Assert.IsTrue(ActivateFrom(crate, puzzle.CellPosition(start + Vector2Int.down)));
+                    Assert.AreNotEqual(start, puzzle.CrateCell);
+                }
+                Assert.IsTrue(ActivateFrom(reset, reset.transform.position + Vector3.back * 1.5f));
+                Assert.AreEqual(puzzle.crateStart, puzzle.CrateCell);
+                Assert.IsFalse(puzzle.Solved);
+                SolvePuzzle(id);
+                Assert.IsTrue(puzzle.Solved);
+                Assert.AreEqual(puzzle.crateGoal, puzzle.CrateCell);
+                Assert.IsFalse(ActivateFrom(reset, reset.transform.position + Vector3.back * 1.5f),
+                    "A completed puzzle must keep its solved state.");
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DialsAndChimesRequireTheirActualSolutions()
+        {
+            FreezeForLogic();
+            foreach (int id in new[] { 2, 6 })
+            {
+                var puzzle = chapter.Puzzles.Single(item => item.id == id);
+                var dial = Mechanism(id, MechanismKind.Dial, 0);
+                for (int i = 0; i < 4; i++) Assert.IsTrue(ActivateNear(dial));
+                Assert.AreEqual(0, puzzle.Values[0], "The dial must cycle back after four steps.");
+                Assert.IsFalse(puzzle.Solved, "An incomplete dial combination cannot restore a route.");
+                SolvePuzzle(id);
+                CollectionAssert.AreEqual(puzzle.solution, puzzle.Values);
+                Assert.IsTrue(puzzle.Solved);
+                Assert.IsFalse(ActivateNear(dial));
+            }
+            var chimes = chapter.Puzzles.Single(item => item.id == 5);
+            Assert.IsTrue(ActivateNear(Mechanism(5, MechanismKind.SequenceSwitch, 0)));
+            Assert.AreEqual(1, chimes.SequenceProgress);
+            Assert.IsTrue(ActivateNear(Mechanism(5, MechanismKind.SequenceSwitch, 1)));
+            Assert.AreEqual(0, chimes.SequenceProgress, "An incorrect second chime must reset the sequence.");
+            Assert.IsFalse(chimes.Solved);
+            SolvePuzzle(5);
+            Assert.IsTrue(chimes.Solved);
+            Assert.AreEqual(chimes.solution.Length, chimes.SequenceProgress);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator InteractionsRespectReachPauseAndSingleUseSupplies()
+        {
+            FreezeForLogic();
+            var lever = Mechanism(0, MechanismKind.Lever);
+            Assert.IsFalse(ActivateFrom(lever, lever.transform.position + Vector3.back * 20f));
+            game.ActiveHero.Teleport(lever.transform.position + Vector3.back * 1.5f);
+            game.TogglePause();
+            Assert.IsFalse(game.TryInteract());
+            Assert.IsFalse(chapter.IsPuzzleSolved(0));
+            game.TogglePause();
+            Assert.IsTrue(game.TryInteract());
+            Assert.IsTrue(chapter.IsPuzzleSolved(0));
+            Assert.IsFalse(game.TryInteract(), "A lever must not repeatedly award completion.");
+            var chest = chapter.Mechanisms.First(item => item.kind == MechanismKind.Chest);
+            game.ActiveHero.Teleport(chest.transform.position + Vector3.back * 1.5f);
+            game.ActiveHero.TakeDamage(20f, game.ActiveHero.transform.position + Vector3.right);
+            Assert.IsTrue(game.TryInteract());
+            Assert.AreEqual(game.ActiveHero.MaxHealth, game.ActiveHero.Health);
+            Assert.AreEqual(1, chapter.SupplyCount);
+            Assert.IsFalse(game.TryInteract());
+            Assert.AreEqual(1, chapter.SupplyCount);
+            yield return null;
+        }
+
+        void FreezeForLogic()
+        {
+            game.enabled = false;
+            foreach (var actor in game.Heroes.Concat(game.Enemies)) actor.enabled = false;
+        }
+
+        GardenMechanism Mechanism(int puzzleId, MechanismKind kind, int index = 0) => chapter.Mechanisms
+            .Single(item => item.puzzleId == puzzleId && item.kind == kind && (kind != MechanismKind.Dial && kind != MechanismKind.SequenceSwitch || item.index == index));
+
+        bool ActivateNear(GardenMechanism mechanism) => ActivateFrom(mechanism, mechanism.transform.position + Vector3.back * 1.5f);
+
+        bool ActivateFrom(GardenMechanism mechanism, Vector3 position)
+        {
+            game.ActiveHero.Teleport(position);
+            Physics.SyncTransforms();
+            var puzzle = chapter.Puzzles.Single(item => item.id == mechanism.puzzleId);
+            return puzzle.TryActivate(mechanism, game.ActiveHero.transform.position);
+        }
+
+        void SolvePuzzle(int id)
+        {
+            var puzzle = chapter.Puzzles.Single(item => item.id == id);
+            if (puzzle.Solved) return;
+            switch (puzzle.kind)
+            {
+                case PuzzleKind.Lever:
+                    Assert.IsTrue(ActivateNear(Mechanism(id, MechanismKind.Lever)), $"Cannot use lever {id}");
+                    break;
+                case PuzzleKind.PushBlock:
+                    var crate = Mechanism(id, MechanismKind.Crate);
+                    foreach (var direction in FindCrateRoute(puzzle))
+                    {
+                        Assert.IsTrue(ActivateFrom(crate, puzzle.CellPosition(puzzle.CrateCell - direction)),
+                            $"Cannot push puzzle {id} from {puzzle.CrateCell} toward {direction}");
+                    }
+                    break;
+                case PuzzleKind.Dials:
+                    for (int index = 0; index < puzzle.solution.Length; index++)
+                    {
+                        int steps = (puzzle.solution[index] - puzzle.Values[index] + 4) % 4;
+                        for (int step = 0; step < steps; step++)
+                            Assert.IsTrue(ActivateNear(Mechanism(id, MechanismKind.Dial, index)), $"Cannot turn dial {id}:{index}");
+                    }
+                    break;
+                case PuzzleKind.Sequence:
+                    foreach (int index in puzzle.solution)
+                        Assert.IsTrue(ActivateNear(Mechanism(id, MechanismKind.SequenceSwitch, index)), $"Cannot ring chime {id}:{index}");
+                    break;
+            }
+            Assert.IsTrue(puzzle.Solved, $"Puzzle {id} did not reach its solved state.");
+            chapter.TickChapter();
+        }
+
+        static List<Vector2Int> FindCrateRoute(GardenPuzzle puzzle)
+        {
+            var frontier = new Queue<Vector2Int>();
+            var previous = new Dictionary<Vector2Int, Vector2Int>();
+            frontier.Enqueue(puzzle.CrateCell);
+            previous[puzzle.CrateCell] = puzzle.CrateCell;
+            var directions = new[] { Vector2Int.up, Vector2Int.right, Vector2Int.down, Vector2Int.left };
+            while (frontier.Count > 0)
+            {
+                var cell = frontier.Dequeue();
+                if (cell == puzzle.crateGoal) break;
+                foreach (var direction in directions)
+                {
+                    var next = cell + direction;
+                    // A push requires a free standing tile behind the crate as well as a free destination.
+                    if (!puzzle.IsCellOpen(next) || !puzzle.IsCellOpen(cell - direction) || previous.ContainsKey(next)) continue;
+                    previous[next] = cell;
+                    frontier.Enqueue(next);
+                }
+            }
+            Assert.IsTrue(previous.ContainsKey(puzzle.crateGoal), $"Push puzzle {puzzle.id} has no legal route.");
+            var result = new List<Vector2Int>();
+            for (var cell = puzzle.crateGoal; cell != puzzle.CrateCell; cell = previous[cell]) result.Add(cell - previous[cell]);
+            result.Reverse();
+            return result;
+        }
+
+        void ClearEncounter(int id)
+        {
+            game.ActivateEncounter(id);
+            Assert.IsTrue(game.IsEncounterActive(id), $"Encounter {id} is gated or did not activate.");
+            foreach (var enemy in game.Enemies.Where(item => item.encounterId == id)) enemy.TakeDamage(10000f, Vector3.zero);
+            Assert.IsTrue(game.IsEncounterCleared(id), $"Encounter {id} did not clear.");
+            chapter.TickChapter();
+        }
+
+        void RestoreChapter()
+        {
+            SolvePuzzle(0);
+            for (int id = 1; id <= 3; id++) { SolvePuzzle(id); ClearEncounter(id); }
+            SolvePuzzle(4);
+            SolvePuzzle(5);
+            ClearEncounter(4);
+            SolvePuzzle(6);
+            ClearEncounter(5);
+            ClearEncounter(6);
         }
     }
 }
