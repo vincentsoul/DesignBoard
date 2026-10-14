@@ -1,5 +1,6 @@
 import { createDocument, createElement, cloneDocument, documentBounds, getElementBounds } from './model.js';
 import { icon } from './icons.js';
+import { zoomAt, wheelZoom } from './viewport.js';
 import { downloadJson, downloadPng, loadLocal, readJsonFile, saveLocal } from './io.js';
 import { boardsApi, createFileSync } from './sync.js';
 import { refreshConnectors } from './board-ops.mjs';
@@ -80,7 +81,7 @@ function setSaveStatus(kind, detail) {
     error: detail ? `同步失败：${detail}` : '同步失败',
   };
   saveStatusEl.classList.toggle('unsaved', kind !== 'saved');
-  saveStatusEl.innerHTML = `<i></i> ${labels[kind]}`;
+  saveStatusEl.replaceChildren(document.createElement('i'), document.createTextNode(` ${labels[kind]}`));
 }
 
 function isEditingText() {
@@ -333,6 +334,23 @@ function refreshTransform() {
   selectionLayerEl.style.transform = transform;
   svgWorldEl.setAttribute('transform', `translate(${x} ${y}) scale(${zoom})`);
   zoomValueEl.textContent = `${Math.round(zoom * 100)}%`;
+}
+
+function setZoom(zoom, point) {
+  if (state.booting || state.switching || state.drag) return;
+  const rect = viewportEl.getBoundingClientRect();
+  const next = zoomAt(state.doc.viewport, zoom, point || { x: rect.width / 2, y: rect.height / 2 });
+  if (next.zoom === state.doc.viewport.zoom) return;
+  state.doc.viewport = next;
+  refreshTransform();
+  scheduleSave();
+}
+
+function onWheel(event) {
+  if (!event.ctrlKey && event.target.closest?.('[contenteditable="true"]')) return;
+  event.preventDefault();
+  const rect = viewportEl.getBoundingClientRect();
+  setZoom(wheelZoom(state.doc.viewport.zoom, event.deltaY, event.deltaMode, rect.height), { x: event.clientX - rect.left, y: event.clientY - rect.top });
 }
 
 function styleElementNode(node, element) {
@@ -880,12 +898,23 @@ function organize(action) {
 }
 
 function wireUI() {
+  document.querySelector('#back-to-boards').addEventListener('click', async () => {
+    if (state.switching) return;
+    state.switching = true;
+    try {
+      if (state.saveTimer) { clearTimeout(state.saveTimer); state.saveTimer = null; state.dirty = false; }
+      if (fileSync.enabled) { await fileSync.push(); await fileSync.flush(); }
+      else if (!saveLocal(state.doc)) throw new Error('保存失败，请先导出 JSON');
+      if (saveStatusEl.classList.contains('unsaved')) throw new Error('保存尚未成功，请先重试或导出 JSON');
+      location.assign('/');
+    } catch (error) { showToast(error.message, 'error'); state.switching = false; }
+  });
   document.querySelectorAll('[data-tool]').forEach((button) => button.addEventListener('click', () => setTool(button.dataset.tool)));
   document.querySelector('#undo-button').innerHTML = icon('undo'); document.querySelector('#redo-button').innerHTML = icon('redo'); document.querySelector('#fit-button').innerHTML = icon('fit');
   document.querySelectorAll('.tool-button[data-tool]').forEach((button) => { const names = { select: 'select', sticky: 'sticky', text: 'text', shape: 'shape', connector: 'connector', pen: 'pen', frame: 'frame', image: 'image' }; button.innerHTML = icon(names[button.dataset.tool]); });
   document.querySelector('#undo-button').addEventListener('click', undo); document.querySelector('#redo-button').addEventListener('click', redo); document.querySelector('#fit-button').addEventListener('click', fitBoard);
-  document.querySelector('#zoom-in').addEventListener('click', () => { state.doc.viewport.zoom = Math.min(3, state.doc.viewport.zoom + .1); refreshTransform(); scheduleSave(); });
-  document.querySelector('#zoom-out').addEventListener('click', () => { state.doc.viewport.zoom = Math.max(.25, state.doc.viewport.zoom - .1); refreshTransform(); scheduleSave(); });
+  document.querySelector('#zoom-in').addEventListener('click', () => setZoom(state.doc.viewport.zoom + .1));
+  document.querySelector('#zoom-out').addEventListener('click', () => setZoom(state.doc.viewport.zoom - .1));
   document.querySelector('#board-name').addEventListener('input', (event) => { state.doc.name = event.target.value; scheduleSave(); });
   document.querySelector('#delete-button').addEventListener('click', deleteSelected);
   document.querySelector('#export-json-button').addEventListener('click', () => { try { downloadJson(state.doc); showToast('JSON 已导出'); } catch { showToast('导出失败', 'error'); } });
@@ -922,6 +951,7 @@ function wireUI() {
   document.querySelector('#help-button').addEventListener('click', () => document.querySelector('#shortcuts-dialog').showModal());
   document.querySelector('#close-shortcuts').addEventListener('click', () => document.querySelector('#shortcuts-dialog').close());
   viewportEl.addEventListener('pointerdown', onPointerDown); viewportEl.addEventListener('pointermove', onPointerMove); viewportEl.addEventListener('pointerup', onPointerUp); viewportEl.addEventListener('pointercancel', onPointerUp);
+  viewportEl.addEventListener('wheel', onWheel, { passive: false });
   viewportEl.addEventListener('dblclick', (event) => { const node = event.target.closest?.('.board-element'); if (!node) return; const element = state.doc.elements.find((item) => item.id === node.dataset.elementId); beginEditing(element, node); });
   viewportEl.addEventListener('contextmenu', (event) => event.preventDefault());
   viewportEl.addEventListener('pointermove', (event) => { state.pointer = toWorldPoint(event); });
@@ -947,7 +977,9 @@ function wireUI() {
 async function boot() {
   wireUI();
   render();
-  if (await fileSync.probe()) {
+  let online;
+  try { online = await fileSync.probe(); } catch { location.replace('/'); return; }
+  if (online) {
     state.switching = true;
     try {
       await openBoard(await resolveStartBoard());

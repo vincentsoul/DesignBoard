@@ -1,0 +1,18 @@
+services:
+  designboard:
+    build: .
+    image: designboard:local
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${DESIGNBOARD_PORT:-4173}:4173"
+    volumes:
+      - board-data:/data/boards
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  board-data:

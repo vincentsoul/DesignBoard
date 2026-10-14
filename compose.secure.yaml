@@ -1,0 +1,39 @@
+# Use with: docker compose -f compose.yaml -f compose.secure.yaml up -d --build
+# Requires Docker Compose 2.24.4+ for !reset.
+services:
+  designboard:
+    ports: !reset []
+    environment:
+      CANVASROOM_AUTH_FILE: /run/secrets/app-auth
+      CANVASROOM_REQUIRE_AUTH: "1"
+      CANVASROOM_TRUST_PROXY: "1"
+    secrets:
+      - app-auth
+  gateway:
+    image: ${DESIGNBOARD_CADDY_IMAGE:?Set a Caddy image with your DNS provider module}
+    restart: unless-stopped
+    ports:
+      - "${DESIGNBOARD_PORT:-4173}:443"
+    environment:
+      DESIGNBOARD_DOMAIN: ${DESIGNBOARD_DOMAIN:?Set DESIGNBOARD_DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - gateway-data:/data
+      - gateway-config:/config
+    secrets:
+      - dns-config
+    depends_on:
+      designboard:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+secrets:
+  dns-config:
+    file: ./secure/dns.caddy
+  app-auth:
+    file: ./secure/auth.json
+
+volumes:
+  gateway-data:
+  gateway-config:

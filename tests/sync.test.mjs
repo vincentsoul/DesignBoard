@@ -161,6 +161,13 @@ test('server lists, creates, saves, and deletes boards', async () => {
   const send = (method, url, body) => fetch(`${base}${url}`, { method, headers: body ? { 'content-type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined });
   try {
     const listed = await (await send('GET', '/api/boards')).json();
+    const crossSite = await fetch(`${base}/api/boards`, { method: 'POST', headers: { origin: 'https://other.example', 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Unwanted' }) });
+    assert.equal(crossSite.status, 403);
+    assert.equal((await fetch(`${base}/api/boards/alpha`, { method: 'DELETE', headers: { origin: 'null' } })).status, 403);
+    assert.equal((await fetch(`${base}/api/boards/alpha`, { method: 'DELETE', headers: { 'sec-fetch-site': 'cross-site' } })).status, 403);
+    assert.equal((await fetch(`${base}/api/boards`, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ name: 'Unwanted' }) })).status, 415);
+    const sameSite = await fetch(`${base}/api/boards`, { method: 'POST', headers: { origin: base, 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Same origin' }) });
+    assert.equal(sameSite.status, 201);
     assert.deepEqual(listed.boards.map((board) => [board.id, board.name, board.elementCount]), [['alpha', 'Alpha', 0]]);
 
     const created = await send('POST', '/api/boards', { name: 'Sprint Retro' });
@@ -203,6 +210,12 @@ test('server lists, creates, saves, and deletes boards', async () => {
     assert.equal(after.boards.some((board) => board.id === 'sprint-retro'), false);
 
     assert.equal((await fetch(`${base}/index.html`)).status, 200);
+    assert.equal((await fetch(`${base}/src/board.js`)).status, 200);
+    assert.equal((await fetch(`${base}/src/board-ops.mjs`)).status, 200);
+    assert.deepEqual(await (await fetch(`${base}/api/health`)).json(), { status: 'ok' });
+    for (const file of ['/package.json', '/server.mjs', '/src/board-store.mjs', '/boards/.gitkeep', '/.git/config']) {
+      assert.equal((await fetch(`${base}${file}`)).status, 404, file);
+    }
     assert.equal((await fetch(`${base}/..%2Fpackage.json`)).status, 404);
   } finally {
     server.close();

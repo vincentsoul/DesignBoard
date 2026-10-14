@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createDocument, parseDocument } from './src/model.js';
 import { boardsDirPath, createBoardStore, projectRoot } from './src/board-store.mjs';
+import { createAuth, loadAuthConfig } from './src/auth.mjs';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -16,18 +17,19 @@ const MIME = {
   '.ico': 'image/x-icon',
 };
 const MAX_BODY = 30 * 1024 * 1024;
+const PUBLIC_FILES = new Set(['index.html', 'editor.html', 'portal.css', 'styles.css', 'src/portal.js', 'src/model.js', 'src/clipboard.js', 'src/sync.js', 'src/board.js', 'src/board-ops.mjs', 'src/icons.js', 'src/io.js', 'src/viewport.js']);
 
 function sendJson(res, status, body) {
   res.writeHead(status, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
   res.end(JSON.stringify(body));
 }
 
-async function readJsonBody(req) {
+async function readJsonBody(req, limit = MAX_BODY) {
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_BODY) throw Object.assign(new Error('Board is too large'), { status: 413 });
+    if (size > limit) throw Object.assign(new Error('Request body is too large'), { status: 413 });
     chunks.push(chunk);
   }
   try {
@@ -83,6 +85,10 @@ async function serveStatic(req, res, root) {
     return;
   }
   if (pathname === '/') pathname = '/index.html';
+  if (!PUBLIC_FILES.has(pathname.slice(1))) {
+    res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('Not found');
+    return;
+  }
   const file = path.resolve(root, `.${pathname}`);
   const inside = file.startsWith(root + path.sep);
   const info = inside ? await stat(file).catch(() => null) : null;
@@ -94,12 +100,44 @@ async function serveStatic(req, res, root) {
   res.end(await readFile(file));
 }
 
-export function createCanvasroomServer({ root = projectRoot, boardsDir } = {}) {
+export function createCanvasroomServer({ root = projectRoot, boardsDir, authConfig = loadAuthConfig(), secureCookie = process.env.CANVASROOM_SECURE_COOKIE !== '0', trustProxy = process.env.CANVASROOM_TRUST_PROXY === '1' } = {}) {
   const resolvedRoot = path.resolve(root);
   const store = createBoardStore(boardsDir ?? boardsDirPath());
+  const auth = createAuth(authConfig, { secure: secureCookie, trustProxy });
   return http.createServer(async (req, res) => {
     try {
-      const { pathname } = new URL(req.url, 'http://localhost');
+      let pathname;
+      try { pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname); }
+      catch { return sendJson(res, 400, { error: 'Invalid request path' }); }
+      if (pathname.startsWith('/api/') && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        // Browser credentials are sent automatically; reject cross-site writes.
+        const origin = req.headers.origin;
+        let sameOrigin = !origin;
+        if (origin) {
+          try { sameOrigin = new URL(origin).host === req.headers.host; } catch { sameOrigin = false; }
+        }
+        if (req.headers['sec-fetch-site'] === 'cross-site' || !sameOrigin) {
+          return sendJson(res, 403, { error: 'Cross-origin writes are not allowed' });
+        }
+        if (['POST', 'PUT'].includes(req.method) && req.headers['content-type']?.split(';')[0].trim().toLowerCase() !== 'application/json') {
+          return sendJson(res, 415, { error: 'Content-Type must be application/json' });
+        }
+      }
+      if (pathname === '/api/health' && req.method === 'GET') return sendJson(res, 200, { status: 'ok' });
+      if (pathname === '/api/auth/session' && req.method === 'GET') return sendJson(res, 200, { enabled: Boolean(auth), username: auth?.user(req) || null });
+      if (pathname === '/api/auth/login' && req.method === 'POST') {
+        if (!auth) return sendJson(res, 200, { enabled: false });
+        const { status, ...result } = await auth.login(req, res, await readJsonBody(req, 8192));
+        return sendJson(res, status, result);
+      }
+      if (pathname === '/api/auth/logout' && req.method === 'POST') {
+        auth?.logout(req, res);
+        return sendJson(res, 200, { loggedOut: true });
+      }
+      if (auth && !auth.user(req)) {
+        if (pathname === '/editor.html') { res.writeHead(302, { location: '/', 'cache-control': 'no-store' }).end(); return; }
+        if (pathname.startsWith('/api/')) return sendJson(res, 401, { error: '请先登录' });
+      }
       if (pathname === '/api/boards') return await handleCollection(req, res, store);
       if (pathname.startsWith('/api/boards/')) return await handleBoard(req, res, store, decodeURIComponent(pathname.slice('/api/boards/'.length)));
       await serveStatic(req, res, resolvedRoot);
@@ -112,8 +150,17 @@ export function createCanvasroomServer({ root = projectRoot, boardsDir } = {}) {
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
   const port = Number(process.env.PORT || 4173);
-  createCanvasroomServer().listen(port, '127.0.0.1', () => {
-    console.log(`Canvasroom: http://127.0.0.1:${port}`);
+  const host = process.env.HOST || '127.0.0.1';
+  const server = createCanvasroomServer();
+  server.listen(port, host, () => {
+    console.log(`Canvasroom: http://${host}:${port}`);
     console.log(`Boards folder: ${boardsDirPath()}`);
   });
+  for (const signal of ['SIGTERM', 'SIGINT']) {
+    process.once(signal, () => {
+      server.close(() => process.exit(0));
+      server.closeIdleConnections();
+      setTimeout(() => process.exit(1), 10000).unref();
+    });
+  }
 }

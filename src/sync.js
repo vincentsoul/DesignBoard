@@ -9,6 +9,11 @@ async function request(method, url, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    const error = new Error('登录已过期，请返回首页重新登录；未保存内容可先导出 JSON');
+    error.status = 401;
+    throw error;
+  }
   return { status: response.status, data };
 }
 
@@ -46,7 +51,8 @@ export function createFileSync({ getDoc, isBusy, onRemoteChange, onStatus, onMis
   async function probe() {
     try {
       enabled = (await request('GET', '/api/boards')).status === 200;
-    } catch {
+    } catch (error) {
+      if (error.status === 401) throw error;
       enabled = false;
     }
     return enabled;
@@ -81,8 +87,8 @@ export function createFileSync({ getDoc, isBusy, onRemoteChange, onStatus, onMis
         } else {
           onStatus('error', data.error);
         }
-      } catch {
-        onStatus('offline');
+      } catch (error) {
+        onStatus(error.status === 401 ? 'error' : 'offline', error.message);
       }
     })();
     await inFlight;
@@ -105,8 +111,8 @@ export function createFileSync({ getDoc, isBusy, onRemoteChange, onStatus, onMis
         revision = data.revision;
         if (data.doc) onRemoteChange(data.doc, false);
       }
-    } catch {
-      onStatus('offline');
+    } catch (error) {
+      onStatus(error.status === 401 ? 'error' : 'offline', error.message);
     }
   }
 

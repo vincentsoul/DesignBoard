@@ -1,0 +1,12 @@
+.git
+boards
+work
+outputs
+node_modules
+tests
+docs
+.DS_Store
+*.tmp
+secure
+.env
+compose.override.yaml

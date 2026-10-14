@@ -1,0 +1,11 @@
+FROM node:24-alpine
+WORKDIR /app
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=4173 CANVASROOM_BOARDS_DIR=/data/boards
+COPY --chown=node:node package.json server.mjs mcp-server.mjs index.html editor.html styles.css portal.css ./
+COPY --chown=node:node src ./src
+RUN mkdir -p /data/boards && chown -R node:node /data
+USER node
+EXPOSE 4173
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+CMD ["node", "server.mjs"]

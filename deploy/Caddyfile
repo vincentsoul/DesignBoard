@@ -1,0 +1,16 @@
+{
+    auto_https disable_redirects
+}
+
+https://{$DESIGNBOARD_DOMAIN} {
+    tls {
+        import /run/secrets/dns-config
+    }
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy same-origin
+        -Server
+    }
+    reverse_proxy designboard:4173
+}

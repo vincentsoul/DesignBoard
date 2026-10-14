@@ -7,6 +7,9 @@ work/
 outputs/
 
 node_modules/
+secure/
+.env
+compose.override.yaml
 *.tmp
 .DS_Store
 Thumbs.db
