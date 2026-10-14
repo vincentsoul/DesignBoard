@@ -1,0 +1,6 @@
+{
+  "name": "ToyGarden.PlayModeTests",
+  "references": ["ToyGarden.Runtime", "Unity.InputSystem"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}

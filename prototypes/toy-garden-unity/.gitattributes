@@ -1,0 +1,12 @@
+# Unity's YAML serializer writes a space after empty scalar values.
+*.meta text eol=lf whitespace=-blank-at-eol
+*.unity text eol=lf whitespace=-blank-at-eol
+*.prefab text eol=lf whitespace=-blank-at-eol
+*.mat text eol=lf whitespace=-blank-at-eol
+*.asset whitespace=-blank-at-eol
+
+# Keep source and package manifests portable across editor platforms.
+*.cs text eol=lf
+*.asmdef text eol=lf
+*.json text eol=lf
+*.md text eol=lf

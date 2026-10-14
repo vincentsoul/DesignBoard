@@ -1,0 +1,56 @@
+# Unity generates these folders locally. Keep Assets/*.meta in version control.
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Bb]uild/
+/[Bb]uilds/
+/[Aa]rtifacts/
+/[Mm]emory[Cc]aptures/
+/[Rr]ecordings/
+/[Tt]est[Rr]esults/
+/[Cc]overage/
+/[Cc]ode[Cc]overage/
+/[Ss]creenshots/
+/[Oo]utputs/
+
+# Unity performance-test package creates these temporarily during builds.
+/Assets/Resources/PerformanceTestRunInfo.json*
+/Assets/Resources/PerformanceTestRunSettings.json*
+
+# Generated solution, project, debugger, and IDE files.
+/.vs/
+/.idea/
+/.vscode/
+*.csproj
+*.sln
+*.slnx
+*.unityproj
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.opendb
+*.VC.db
+*.pdb
+*.mdb
+*.tmp
+*.bak
+*.orig
+
+# OS metadata and local diagnostics.
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+/sysinfo.txt
+/crash-report/
+
+# Local credentials and personal data never belong in this prototype.
+/.env
+/.env.*
+/secure/
+/boards/
