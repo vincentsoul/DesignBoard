@@ -11,7 +11,7 @@ namespace ToyGarden
         const float Width=1440, Height=900;
         const int PageSize=16;
         static readonly Color Background=new(.075f,.065f,.105f), PanelColor=new(.115f,.105f,.16f), Raised=new(.16f,.145f,.205f);
-        static readonly Color Gold=new(.91f,.75f,.43f), TextColor=new(.91f,.9f,.94f), Muted=new(.61f,.59f,.68f), Green=new(.48f,.86f,.65f), Red=new(.96f,.5f,.52f);
+        static readonly Color Gold=new(.91f,.75f,.43f), TextColor=new(.91f,.9f,.94f), Muted=new(.72f,.7f,.78f), Green=new(.48f,.86f,.65f), Red=new(.96f,.5f,.52f);
         static readonly GearSlot[] Slots=(GearSlot[])Enum.GetValues(typeof(GearSlot));
         static readonly ActorKind[] Heroes={ActorKind.Blade,ActorKind.Hammer,ActorKind.Ranger};
         static readonly GearStat[] Stats=(GearStat[])Enum.GetValues(typeof(GearStat));
@@ -73,17 +73,19 @@ namespace ToyGarden
             Vector2 offset=new((Screen.width-Width*uiScale)*.5f,(Screen.height-Height*uiScale)*.5f);
             mouse=(Event.current.mousePosition-offset)/uiScale;
             GUI.matrix=Matrix4x4.TRS(new Vector3(offset.x,offset.y,0),Quaternion.identity,Vector3.one*uiScale);
+            if(GardenUISkin.Background!=null)
+                GardenUISkin.DrawTexture(new Rect(0,0,Width,Height),GardenUISkin.Background,ScaleMode.StretchToFill);
             bool previousEnabled=GUI.enabled;
             GUI.enabled=previousEnabled && confirmId==null;
             DrawHeader(); DrawNavigation(); DrawHeroPanel();
             if(tab==0) DrawInventory(); else if(tab==1) DrawCharacter(); else DrawForge();
-            Fill(new Rect(24,839,1392,1),new Color(.32f,.29f,.38f));
+            GardenUISkin.Panel(new Rect(0,839,Width,61));
             Text(new Rect(26,854,950,25),"换装与成长自动保存 · I / Esc 返回　·　点击装备查看详情　·　拖动角色可旋转",small,Muted);
             string saveStatus=game.SaveStatus ?? "";
             Text(new Rect(1120,854,292,25),saveStatus,small,saveStatus.Contains("失败") || saveStatus.Contains("暂停")?Red:Gold,TextAnchor.MiddleRight);
             if(Time.unscaledTime<toastUntil)
             {
-                Fill(new Rect(400,794,640,40),new Color(.22f,.19f,.28f,.98f));
+                GardenUISkin.Draw("tooltip",new Rect(400,794,640,40));
                 Text(new Rect(414,801,612,28),toast,small,Gold,TextAnchor.MiddleCenter);
             }
             GUI.enabled=previousEnabled;
@@ -93,35 +95,41 @@ namespace ToyGarden
 
         void DrawHeader()
         {
-            Text(new Rect(30,25,400,42),"装备与成长",title,TextColor);
-            Text(new Rect(32,71,500,25),"精炼装备，构筑属于小队的战斗风格",small,Muted);
-            Currency(new Rect(801,29,170,45),"金币",Model.gold,Gold);
-            Currency(new Rect(981,29,170,45),"矿石",Model.ore,new Color(.65f,.78f,.91f));
-            Currency(new Rect(1161,29,170,45),"精粹",Model.essence,new Color(.75f,.57f,.95f));
+            if(Button(new Rect(24,26,61,45),"←",false)) game.CloseEquipment();
+            Text(new Rect(103,25,400,42),"装备与成长",title,TextColor);
+            Text(new Rect(105,71,500,25),"精炼装备，构筑属于小队的战斗风格",small,TextColor);
+            Currency(new Rect(801,29,170,45),"金币",Model.gold,Gold,"icon-gold");
+            Currency(new Rect(981,29,170,45),"矿石",Model.ore,new Color(.65f,.78f,.91f),"icon-ore");
+            Currency(new Rect(1161,29,170,45),"精粹",Model.essence,new Color(.75f,.57f,.95f),"icon-essence");
             if(Button(new Rect(1351,29,63,45),"关闭",false)) game.CloseEquipment();
         }
-        void Currency(Rect r,string name,int count,Color accent)
+        void Currency(Rect r,string name,int count,Color accent,string icon)
         {
-            Fill(r,Raised); Fill(new Rect(r.x,r.y,3,r.height),accent);
-            Text(new Rect(r.x+13,r.y+4,r.width-20,17),name,tiny,Muted);
-            Text(new Rect(r.x+13,r.y+21,r.width-20,22),count.ToString("N0"),body,accent);
+            GardenUISkin.Draw("field",r);
+            GardenUISkin.Draw(icon,new Rect(r.x+3,r.y+1,44,44));
+            Text(new Rect(r.x+52,r.y+3,r.width-62,17),name,tiny,Muted);
+            Text(new Rect(r.x+52,r.y+20,r.width-62,23),count.ToString("N0"),body,accent);
         }
         void DrawNavigation()
         {
-            Fill(new Rect(24,112,146,706),PanelColor);
             string[] labels={"装 备","角 色","锻 造"};
+            string[] icons={"icon-equipment","icon-character","icon-forge"};
             for(int i=0;i<3;i++)
             {
                 Rect r=new(24,140+i*68,146,56);
-                if(Button(r,labels[i],tab==i)) { tab=i; confirmId=null; }
-                if(tab==i) Fill(new Rect(r.x,r.y,4,r.height),Gold);
+                GardenUISkin.Draw(tab==i?"tab-selected":"tab-normal",r);
+                GardenUISkin.Draw(icons[i],new Rect(r.x+8,r.y+9,37,37));
+                Color labelColor=tab==i && GardenUISkin.GetSprite("tab-selected")!=null?new Color(.21f,.12f,.06f):Gold;
+                Text(new Rect(r.x+45,r.y,94,r.height),labels[i],center,labelColor,TextAnchor.MiddleCenter);
+                if(GUI.Button(r,GUIContent.none,GUIStyle.none)) { tab=i; confirmId=null; }
             }
-            Text(new Rect(40,378,114,24),"小队成员",small,Muted);
+            Text(new Rect(40,378,114,24),"小队成员",small,new Color(.2f,.15f,.28f));
             for(int i=0;i<Heroes.Length;i++)
             {
                 ActorKind kind=Heroes[i];
                 if(Button(new Rect(35,416+i*69,124,57),GardenGame.RoleName(kind)+"\n等级 "+Model.GetHero(kind).level,hero==kind,smallCenter)) SelectHero(kind);
             }
+            GardenUISkin.Panel(new Rect(28,657,138,131));
             Text(new Rect(40,672,112,104),"战利品可强化、洗炼。\n\n套装效果在装备后生效。",small,Muted);
         }
         void SelectHero(ActorKind value)
@@ -138,14 +146,10 @@ namespace ToyGarden
         }
         void DrawHeroPanel()
         {
-            Fill(new Rect(190,112,500,706),PanelColor);
             HeroProgress progress=Model.GetHero(hero);
-            Text(new Rect(211,131,300,35),GardenGame.RoleName(hero),heading,TextColor);
-            Text(new Rect(529,135,138,27),"等级 "+progress.level,body,Gold,TextAnchor.MiddleRight);
-            for(int i=0;i<Heroes.Length;i++)
-                if(Button(new Rect(204+i*157,178,150,34),GardenGame.RoleName(Heroes[i]),hero==Heroes[i],smallCenter)) SelectHero(Heroes[i]);
-            Rect portrait=new(278,226,324,405);
-            if(preview!=null) GUI.DrawTexture(portrait,preview.Texture,ScaleMode.ScaleToFit,false);
+            Text(new Rect(282,129,314,40),GardenGame.RoleName(hero)+"  等级 "+progress.level,heading,TextColor,TextAnchor.MiddleCenter);
+            Rect portrait=new(255,173,365,502);
+            if(preview!=null) GardenUISkin.DrawTexture(portrait,preview.Texture,ScaleMode.ScaleToFit);
             if(Event.current.type==EventType.MouseDrag && Event.current.button==0 && portrait.Contains(mouse) && confirmId==null)
             { preview?.Tick(-Event.current.delta.x/uiScale*.65f); Event.current.Use(); }
             for(int i=0;i<Slots.Length;i++)
@@ -155,9 +159,9 @@ namespace ToyGarden
                 GearItem item=Model.GetEquipped(hero,Slots[i]);
                 DrawSlot(rect,Slots[i],item);
             }
-            Text(new Rect(282,637,316,25),"拖动旋转角色",small,Muted,TextAnchor.MiddleCenter);
+            Text(new Rect(282,646,316,25),"拖动旋转角色",small,TextColor,TextAnchor.MiddleCenter);
             GearStats stats=Model.AggregateStats(hero);
-            Fill(new Rect(210,684,460,1),new Color(.3f,.27f,.35f));
+            GardenUISkin.Panel(new Rect(202,683,476,129));
             MiniStat(new Rect(210,703,144,66),"攻击加成",Signed(stats.attack,false));
             MiniStat(new Rect(366,703,144,66),"防御加成",Signed(stats.defense,false));
             MiniStat(new Rect(522,703,144,66),"生命加成",Signed(stats.health,false));
@@ -166,12 +170,10 @@ namespace ToyGarden
         }
         void DrawSlot(Rect r,GearSlot slot,GearItem item)
         {
-            Color accent=item!=null?QualityColor(item.quality):new Color(.29f,.27f,.36f);
-            Fill(r,item!=null?new Color(.18f,.16f,.23f):new Color(.095f,.085f,.135f));
-            Border(r,item!=null && selectedId==item.id?Gold:accent,item!=null && selectedId==item.id?2:1);
+            GardenUISkin.Slot(new Rect(r.x,r.y,r.width,72),item?.quality,item!=null && selectedId==item.id);
             Color previous=GUI.color; GUI.color=item==null?new Color(.5f,.48f,.56f,.55f):Color.white;
-            GUI.DrawTexture(new Rect(r.x+8,r.y+2,r.width-16,56),GardenItemIcon.Get(slot,item?.weaponClass??hero)); GUI.color=previous;
-            Text(new Rect(r.x+2,r.y+60,r.width-4,22),GardenProgression.SlotName(slot),small,Muted,TextAnchor.MiddleCenter);
+            GardenUISkin.DrawTexture(new Rect(r.x+6,r.y+5,r.width-12,60),GardenUISkin.GetIcon(slot,item?.weaponClass??hero),ScaleMode.ScaleToFit); GUI.color=previous;
+            Text(new Rect(r.x+2,r.y+74,r.width-4,21),GardenProgression.SlotName(slot),small,TextColor,TextAnchor.MiddleCenter);
             if(item!=null && item.enhancement>0) Text(new Rect(r.x+39,r.y+2,31,18),"+"+item.enhancement,tiny,Gold,TextAnchor.MiddleRight);
             if(GUI.Button(r,GUIContent.none,GUIStyle.none))
             {
@@ -192,7 +194,7 @@ namespace ToyGarden
         }
         void DrawInventory()
         {
-            Fill(new Rect(710,112,706,706),PanelColor);
+            GardenUISkin.Panel(new Rect(710,112,706,706));
             Text(new Rect(730,132,300,30),"背包装备",heading,TextColor);
             Text(new Rect(1098,136,294,24),$"容量 {Model.BackpackCount} / {GardenProgression.Capacity}",small,Muted,TextAnchor.MiddleRight);
             if(Button(new Rect(726,177,156,33),qualityFilter<0?"品质：全部":"品质："+GardenProgression.QualityName((GearQuality)qualityFilter),false,smallCenter))
@@ -206,7 +208,7 @@ namespace ToyGarden
             {
                 Rect r=new(726+i%4*94,228+i/4*94,86,86); int index=page*PageSize+i;
                 if(index<items.Count) DrawItemCell(r,items[index]);
-                else { Fill(r,new Color(.09f,.08f,.125f)); Border(r,new Color(.2f,.18f,.25f)); }
+                else GardenUISkin.Slot(r,null,false);
             }
             if(items.Count==0) Text(new Rect(746,359,330,86),"没有符合条件的装备\n试试切换筛选，或前往锻造。",body,Muted,TextAnchor.MiddleCenter);
             if(Button(new Rect(726,618,72,32),"上一页",false,smallCenter,page>0)) page--;
@@ -220,10 +222,8 @@ namespace ToyGarden
         }
         void DrawItemCell(Rect r,GearItem item)
         {
-            Color quality=QualityColor(item.quality);
-            Fill(r,Color.Lerp(PanelColor,quality,.13f)); Border(r,selectedId==item.id?Gold:Color.Lerp(PanelColor,quality,.7f),selectedId==item.id?2:1);
-            Fill(new Rect(r.x+1,r.y+r.height-3,r.width-2,2),quality);
-            GUI.DrawTexture(new Rect(r.x+13,r.y+6,60,60),GardenItemIcon.Get(item.slot,item.weaponClass));
+            GardenUISkin.Slot(r,item.quality,selectedId==item.id);
+            GardenUISkin.DrawTexture(new Rect(r.x+11,r.y+3,64,64),GardenUISkin.GetIcon(item.slot,item.weaponClass),ScaleMode.ScaleToFit);
             Text(new Rect(r.x+6,r.y+63,r.width-12,19),"等级 "+item.itemLevel,tiny,Muted);
             if(item.enhancement>0) Text(new Rect(r.x+50,r.y+4,30,19),"+"+item.enhancement,tiny,Gold,TextAnchor.MiddleRight);
             if(item.locked) Text(new Rect(r.x+5,r.y+3,25,18),"锁",tiny,Gold);
@@ -276,12 +276,12 @@ namespace ToyGarden
         }
         float DetailsHeading(float y,string text)
         {
-            Fill(new Rect(0,y+5,248,1),new Color(.29f,.26f,.34f));
+            GardenUISkin.Draw("divider",new Rect(0,y+5,248,2));
             Text(new Rect(0,y+15,250,26),text,small,Gold); return y+44;
         }
         void DrawItemActions(GearItem item)
         {
-            Fill(new Rect(726,671,670,1),new Color(.29f,.26f,.34f));
+            GardenUISkin.Draw("divider",new Rect(726,671,670,2));
             if(item==null)
             {
                 Text(new Rect(731,691,440,46),"战利品、强化与套装共同影响角色的实战属性。",small,Muted);
@@ -302,12 +302,13 @@ namespace ToyGarden
 
         void DrawCharacter()
         {
-            Fill(new Rect(710,112,706,706),PanelColor);
+            GardenUISkin.Panel(new Rect(710,112,706,706));
             HeroProgress progress=Model.GetHero(hero); GardenActor actor=game.Heroes.FirstOrDefault(member=>member.kind==hero);
             Text(new Rect(735,137,500,35),GardenGame.RoleName(hero)+" · 角色成长",heading,TextColor);
             int required=GardenProgression.ExperienceRequired(progress.level);
             Text(new Rect(735,193,641,27),$"等级 {progress.level} / {GardenProgression.MaxLevel}　　经验 {progress.experience} / {required}",body,Muted);
-            Fill(new Rect(735,235,650,8),Raised); Fill(new Rect(735,235,650*Mathf.Clamp01(progress.experience/(float)required),8),Gold);
+            GardenUISkin.Draw("progress-track",new Rect(735,235,650,10));
+            GardenUISkin.Draw("progress-fill",new Rect(735,235,650*Mathf.Clamp01(progress.experience/(float)required),10));
             Text(new Rect(735,277,650,30),actor!=null?$"当前生命 {actor.Health:0} / {actor.MaxHealth:0}":"角色尚未加入场景",body,TextColor);
             Text(new Rect(735,335,650,30),"实战属性",heading,Gold);
             Text(new Rect(735,370,650,38),"包含等级、装备和套装效果；更换装备后即时更新。",small,Muted);
@@ -319,7 +320,7 @@ namespace ToyGarden
             for(int i=0;i<labels.Length;i++)
             {
                 Rect r=new(735+i%2*335,424+i/2*48,315,36);
-                Fill(r,Raised); StatRow(new Rect(r.x+12,r.y+7,r.width-24,25),labels[i],values[i],TextColor);
+                GardenUISkin.Draw("field",r); StatRow(new Rect(r.x+12,r.y+7,r.width-24,25),labels[i],values[i],TextColor);
             }
             Text(new Rect(735,638,650,28),"当前套装",heading,Gold);
             int y=681;
@@ -333,7 +334,7 @@ namespace ToyGarden
 
         void DrawForge()
         {
-            Fill(new Rect(710,112,706,706),PanelColor);
+            GardenUISkin.Panel(new Rect(710,112,706,706));
             Text(new Rect(735,136,640,34),"锻造工坊",heading,Gold);
             Text(new Rect(735,176,640,38),"选择部位、品质与套装；打造后获得随机词条。武器适用于当前角色。",small,Muted);
             Text(new Rect(735,228,640,25),"打造部位",body,TextColor);
@@ -345,8 +346,8 @@ namespace ToyGarden
             Text(new Rect(735,474,640,25),"套装归属",body,TextColor);
             for(int i=0;i<4;i++)
                 if(Button(new Rect(735+i*164,513,154,37),GardenProgression.SetName((GearSet)i),craftSet==(GearSet)i,smallCenter)) craftSet=(GearSet)i;
-            Fill(new Rect(735,579,650,141),Raised);
-            GUI.DrawTexture(new Rect(747,598,100,100),GardenItemIcon.Get(craftSlot,hero));
+            GardenUISkin.Draw("tooltip",new Rect(735,579,650,141));
+            GardenUISkin.DrawTexture(new Rect(747,598,100,100),GardenUISkin.GetIcon(craftSlot,hero),ScaleMode.ScaleToFit);
             Text(new Rect(865,598,495,30),GardenProgression.QualityName(craftQuality)+" · "+GardenProgression.SlotName(craftSlot),heading,QualityColor(craftQuality));
             Text(new Rect(865,636,495,26),GardenProgression.SetName(craftSet)+"　·　"+GardenGame.RoleName(hero)+"可用",small,Muted);
             GearCost cost=GardenProgression.CraftCost(craftSlot,craftQuality,craftSet);
@@ -370,7 +371,7 @@ namespace ToyGarden
             if(item==null) { confirmId=null; return; }
             drawingConfirmation=true;
             Fill(new Rect(0,0,Width,Height),new Color(.02f,.015f,.035f,.86f));
-            Rect dialog=new(435,285,570,310); Fill(dialog,Raised); Border(dialog,Gold);
+            Rect dialog=new(435,285,570,310); GardenUISkin.Draw("tooltip",dialog);
             Text(new Rect(466,313,508,38),"确认分解装备？",heading,TextColor);
             Text(new Rect(466,364,508,55),item.name,body,QualityColor(item.quality));
             Text(new Rect(466,426,508,56),"回收："+Cost(GardenProgression.DismantleYield(item))+"\n分解后无法恢复；已装备或锁定的物品不能分解。",small,Muted);
@@ -421,18 +422,20 @@ namespace ToyGarden
         bool Button(Rect rect,string text,bool selected,GUIStyle style=null,bool enabled=true)
         {
             bool canUse=enabled && (confirmId==null || drawingConfirmation);
-            Color fill=selected?new Color(.3f,.25f,.17f):Raised;
-            if(rect.Contains(mouse)&&canUse) fill=Color.Lerp(fill,Gold,.12f);
-            Fill(rect,canUse?fill:Color.Lerp(fill,Background,.35f));
-            Border(rect,selected?Gold:new Color(.32f,.29f,.38f));
-            Text(rect,text,style??center,canUse?(selected?Gold:TextColor):Muted,TextAnchor.MiddleCenter);
+            GardenUISkin.Button(rect,selected);
+            if(rect.Contains(mouse)&&canUse) Fill(rect,new Color(1,.85f,.52f,.12f));
+            if(!canUse) Fill(rect,new Color(.04f,.025f,.07f,.5f));
+            Color selectedText=GardenUISkin.GetSprite("action-gold")!=null?new Color(.22f,.12f,.05f):Gold;
+            Text(rect,text,style??center,canUse?(selected?selectedText:TextColor):Muted,TextAnchor.MiddleCenter);
             bool before=GUI.enabled; GUI.enabled=canUse;
             bool clicked=GUI.Button(rect,GUIContent.none,GUIStyle.none); GUI.enabled=before; return clicked;
         }
         static void Text(Rect rect,string value,GUIStyle style,Color color,TextAnchor? alignment=null)
         {
             Color previous=style.normal.textColor; TextAnchor previousAlignment=style.alignment;
-            style.normal.textColor=color; if(alignment.HasValue) style.alignment=alignment.Value;
+            // GUIStyle's font shader handles its own color conversion; only image tints need linear values.
+            style.normal.textColor=color;
+            if(alignment.HasValue) style.alignment=alignment.Value;
             GUI.Label(rect,value,style); style.normal.textColor=previous; style.alignment=previousAlignment;
         }
         static void Fill(Rect rect,Color color)

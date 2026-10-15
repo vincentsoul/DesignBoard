@@ -1,6 +1,6 @@
 {
   "name": "ToyGarden.Runtime",
   "rootNamespace": "ToyGarden",
-  "references": ["Unity.InputSystem", "Unity.Cinemachine", "Unity.AI.Navigation"],
+  "references": ["Unity.InputSystem", "Unity.Cinemachine", "Unity.AI.Navigation", "Unity.RenderPipelines.Universal.Runtime"],
   "autoReferenced": true
 }

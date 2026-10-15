@@ -16,6 +16,7 @@
 /[Oo]utputs/
 
 # Unity performance-test package creates these temporarily during builds.
+/Assets/Resources.meta
 /Assets/Resources/PerformanceTestRunInfo.json*
 /Assets/Resources/PerformanceTestRunSettings.json*
 

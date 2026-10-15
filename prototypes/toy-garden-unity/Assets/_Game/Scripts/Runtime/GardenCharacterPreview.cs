@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace ToyGarden
 {
@@ -25,12 +26,17 @@ namespace ToyGarden
             var cameraObject=new GameObject("Equipment portrait camera") { hideFlags=HideFlags.HideAndDontSave, layer=PreviewLayer };
             cameraObject.transform.SetParent(stage.transform,false);
             camera=cameraObject.AddComponent<Camera>(); camera.cullingMask=1<<PreviewLayer;
-            camera.clearFlags=CameraClearFlags.SolidColor; camera.backgroundColor=new Color(.115f,.105f,.16f,1);
-            if(QualitySettings.activeColorSpace==ColorSpace.Linear) camera.backgroundColor=camera.backgroundColor.linear;
-            camera.nearClipPlane=.1f; camera.farClipPlane=12; camera.fieldOfView=29;
+            // An alpha-backed portrait lets the actual toy hero stand on the illustrated UI stage.
+            // Explicitly disable post processing so URP does not replace the clear alpha with one.
+            camera.clearFlags=CameraClearFlags.SolidColor; camera.backgroundColor=Color.clear;
+            camera.allowHDR=false; camera.allowMSAA=false;
+            var cameraData=cameraObject.AddComponent<UniversalAdditionalCameraData>();
+            cameraData.renderPostProcessing=false; cameraData.requiresColorTexture=false; cameraData.requiresDepthTexture=false;
+            cameraData.renderShadows=false; cameraData.volumeLayerMask=0;
+            camera.nearClipPlane=.1f; camera.farClipPlane=12; camera.fieldOfView=26;
             cameraObject.transform.localPosition=new Vector3(0,1.45f,4.7f);
             cameraObject.transform.LookAt(stage.transform.position+Vector3.up*.95f);
-            texture=new RenderTexture(640,760,24,RenderTextureFormat.ARGB32) { name="Equipment character portrait", hideFlags=HideFlags.HideAndDontSave, antiAliasing=2 };
+            texture=new RenderTexture(640,880,24,RenderTextureFormat.ARGB32) { name="Equipment character portrait", hideFlags=HideFlags.HideAndDontSave, antiAliasing=1 };
             texture.Create(); camera.targetTexture=texture; camera.depth=50;
             LightForPortrait("Portrait key light",new Vector3(-2,3,3),new Color(.85f,.85f,1),2.5f);
             LightForPortrait("Portrait gold rim",new Vector3(2,2,-1),new Color(1,.7f,.4f),2);
@@ -39,7 +45,7 @@ namespace ToyGarden
             pedestal.transform.SetParent(stage.transform,false); pedestal.transform.localPosition=Vector3.down*.12f; pedestal.transform.localScale=new Vector3(1.65f,.1f,1.65f);
             UnityEngine.Object.Destroy(pedestal.GetComponent<Collider>());
             pedestalMaterial=new Material(Shader.Find("Universal Render Pipeline/Lit")) { hideFlags=HideFlags.HideAndDontSave };
-            pedestalMaterial.color=new Color(.25f,.22f,.35f); pedestal.GetComponent<Renderer>().sharedMaterial=pedestalMaterial;
+            pedestalMaterial.color=new Color(.59f,.36f,.1f); pedestal.GetComponent<Renderer>().sharedMaterial=pedestalMaterial;
             worldCamera=Camera.main;
             if(worldCamera!=null) { previousMask=worldCamera.cullingMask; worldCamera.cullingMask&=~(1<<PreviewLayer); }
         }
