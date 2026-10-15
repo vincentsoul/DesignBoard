@@ -2,7 +2,7 @@
 
 根据 APK 提取的 IL2CPP 客户端符号拆分业务模块，使用原创 HTTP/JSON 接口实现本地验证。当前包含 8 个模块、17 个变更命令，并用 SQLite 保存角色、交易、小镇、奖励领取和请求回执。
 
-功能证据来自客户端类、字段、方法和参数名。原游戏服务器的代码、协议帧、protobuf 字段编号、实际经济规则及 SDK 登录校验尚未恢复。`GET /api/capabilities` 返回各模块的客户端符号和原型假设；`catalog.mjs` 中的物品、价格、配方、初始状态和奖励都是演示数据。
+功能证据来自客户端类、字段、方法和参数名。原游戏服务器代码、完整消息契约、实际经济规则及 SDK 登录校验尚未恢复。包头与部分 JSON 字段已另行静态定位，见 [原客户端适配记录](../../docs/trail-client-minimal-flow.md)。`GET /api/capabilities` 返回各模块的客户端符号和原型假设；`catalog.mjs` 中的物品、价格、配方、初始状态和奖励都是演示数据。
 
 ## 运行
 
@@ -105,9 +105,9 @@ python3 scripts/inspect-il2cpp-metadata.py \
 ## 验证
 
 ```bash
-node --test prototypes/trail-server/test/server.test.mjs
+node --test prototypes/trail-server/test/*.test.mjs
 ```
 
-12 项测试覆盖 HTTP 完整流程、未授权访问、非法 JSON/请求体、货币修改拒绝、版本冲突、幂等重试、制作与交易回滚、并发购买、卖家取消、小镇权限/容量、上海周边界、会话过期、事件隔离以及 SQLite 重启。
+18 项测试包含 6 项原协议包头测试（字节序、拆包、粘包、长度限制和截断），其余覆盖 HTTP 完整流程、未授权访问、非法 JSON/请求体、货币修改拒绝、版本冲突、幂等重试、制作与交易回滚、并发购买、卖家取消、小镇权限/容量、上海周边界、会话过期、事件隔离以及 SQLite 重启。
 
 实现为单个本地进程，业务变更用 `BEGIN IMMEDIATE` 事务完成，所有 SQL 参数使用绑定。没有调用原游戏服务器或 SDK，没有修改原 APK，也没有将原 APK 的配置、代码数据或会话写入仓库。接口协议为此原型自定义，不能直接声称兼容原 APK。
