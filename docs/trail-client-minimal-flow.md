@@ -31,11 +31,11 @@ REA 完成 APK/Java 分析；原生全量分析超时后，使用 Il2CppDumper 6
 
 `legacy/frame-codec.mjs` 仅处理这个包头和不透明 body，支持 TCP 拆包、粘包，限制总长为 12…1048575 字节。它没有连接到现有 HTTP 服务，也没有实现完整游戏协议。
 
-会话操作码为 1，心跳为 2。静态分支显示：RC4 初始化前发送 body 不加密；初始化前接收路径调用 RSA 解密，出现 OAEP 解格式化器。RSA 参数、具体填充分支和自定义 `EncryptNoRound` 状态语义尚待核实，不能用猜测的握手替代。登录成功后的角色必需字段、物品 UID/布局字段、SDK 本地替代入口和热更新行为也未完整确认。因此不能仅返回 `{status:0,items:[]}` 就声称最小流程可用。
+会话操作码为 1，心跳为 2。静态分支显示：RC4 初始化前发送 body 不加密；初始化前接收路径调用 RSA 解密，出现 OAEP 解格式化器。RSA 参数、具体填充分支尚待进一步核实，不能用猜测的握手替代。登录成功后的角色必需字段、物品 UID/布局字段、SDK 本地替代入口和热更新行为也未完整确认。因此不能仅返回 `{status:0,items:[]}` 就声称最小流程可用。
 
 ## 验证状态
 
-- 已通过：原生包头与反汇编交叉检查；6 项包头测试和既有 12 项服务端测试。
+- 已通过：原生包头与反汇编交叉检查；6 项包头测试、4 项消息体加密测试和既有 12 项服务端测试。
 - 已通过：Mac 本地 HTTP 服务健康检查。
 - 未运行：原 APK 启动、本地登录、角色载入、背包界面。
 - 未完成：会话加密适配、登录及角色/物品完整响应、连接地址补丁、重打包与签名。
@@ -55,3 +55,24 @@ python3 scripts/check-android-minimal.py \
 预检检查授权设备、Android/ABI 信息、本地服务和 `adb reverse tcp:4317 tcp:4317` 后的设备 HTTP 可达性；多设备时传 `--serial`。它不安装或启动 APK，预检通过也不表示游戏协议通过。无设备时退出码为 2，报告仍明确记录游戏步骤 `not_run`。
 
 后续需先完成会话和数据契约，再制作可区分的测试包，记录客户端日志、服务端实际请求及背包显示结果。现有 HTTP 演示只证明原型业务可运行。
+
+## 第二轮静态适配：消息体加密
+
+定点分析新增 `RC4.Init`（RVA `0x40A0D9C`）、`RC4.EncryptNoRound`（`0x40A1264`）、`Pack.InitRSA`（`0x40A061C`）。原生分支使用标准 256 字节 RC4 KSA；初始化后 nX/nY 为零。`EncryptNoRound` 复制 Box，并使用局部计数器执行 PRGA，没有将修改后的 Box、nX、nY 写回实例。因此每个消息体从同一密钥的初始流开始。
+
+`legacy/packet-cipher.mjs` 实现该分支，接受调用方提供的密钥字节，返回新的消息体 Buffer。测试使用公开通用 RC4 已知答案（Key/Plaintext、Wiki/pedia、Secret/Attack at dawn），并验证逐包重置、对称解密、输入不变以及加密背包帧的拆包恢复。最后一项使用合成数据，只验证模块组合，不证明 APK 接受该响应。当前未将此兼容算法用于 HTTP 会话或新协议。
+
+会话请求模型字段为 `timestmp`（原拼写）和 `salt`；响应模型为 `KeyLen`、`SessionKey`。`Pack.InitRSA` 调用私钥解码方法。没有将包内密钥或 salt 复制到服务端或仓库；后续测试应替换为本地测试密钥对并验证 RSA OAEP 参数及长度限制。
+
+新增 `scripts/resolve-il2cpp-native-strings.py`，从 ELF64 文件映射 Ghidra 指针引用，再匹配 Il2CppDumper 字符串表，避免把错误基址或共享泛型显示名称当作字段证据。提取结果仅保存到忽略目录：
+
+```bash
+python3 scripts/resolve-il2cpp-native-strings.py \
+  --binary outputs/rea-apk/extracted/lib/arm64-v8a/libil2cpp.so \
+  --symbols outputs/rea-apk/client-minimal/il2cpp-symbols/script.json \
+  --image-base 0x100000 \
+  --output outputs/rea-apk/client-minimal/payload-strings.json \
+  outputs/rea-apk/client-minimal/native-payloads/*.c
+```
+
+角色更新路径出现 `ID`、`gamerID`、`name`、`stamina`、`body_condition`、`characterData`、`dataStore`、`recipes`、`townID`、`homeTownID`、`campLocation` 等字符串；背包 SetInventory 重载出现 `item_slots`。这是字段候选及访问证据，不能直接当作完整 JSON schema：仍须确认必填性、嵌套层级、类型及相关初始化顺序。原客户端登录和界面验证状态仍为未运行。
