@@ -4,6 +4,8 @@
 
 功能证据来自客户端类、字段、方法和参数名。原游戏服务器代码、完整消息契约、实际经济规则及 SDK 登录校验尚未恢复。包头与部分 JSON 字段已另行静态定位，见 [原客户端适配记录](../../docs/trail-client-minimal-flow.md)。`GET /api/capabilities` 返回各模块的客户端符号和原型假设；`catalog.mjs` 中的物品、价格、配方、初始状态和奖励都是演示数据。
 
+已生成原 APK 的独立本地测试版，并在 Android 11 ARM64 模拟器实际完成游客登录、角色列表和进入游戏消息收发。它通过 `client/local-transport.lua` 将原 Lua 网络管理器接入本服务的 HTTP 桥接，继续使用原登录响应回调；不是原 MOS2/NEX 字节协议。角色出生、资源加载、背包和原 SDK 残留依赖仍待适配，当前不能完整游玩。重建、安装和真实日志记录见上述适配记录第五轮。
+
 ## 运行
 
 在仓库根目录使用 Node.js 24.x（或 26+），无需安装 npm 依赖：
@@ -34,6 +36,7 @@ node prototypes/trail-server/demo.mjs
 | `GET /api/catalog` | 演示物品、配方、价格与规则 |
 | `GET /api/capabilities` | 已实现命令、证据和假设 |
 | `POST /api/session` | 创建本地游客角色和 24 小时会话；body 为 `{ "name": "旅人" }` |
+| `POST /api/client/message` | 修改版 APK 的本地 HTTP 桥接；JSON 或单个 `message` 表单字段，登录之外需要本地会话 token |
 | `GET /api/player` | 当前角色状态、存档版本和小镇成员身份 |
 | `POST /api/heartbeat` | 服务器时间和角色版本 |
 | `POST /api/commands` | 执行业务变更命令 |
@@ -108,9 +111,9 @@ python3 scripts/inspect-il2cpp-metadata.py \
 node --test prototypes/trail-server/test/*.test.mjs
 ```
 
-35 项测试包含 7 项角色编码/响应测试、6 项会话/TCP 测试、4 项消息体加密测试和 6 项原协议包头测试（字节序、拆包、粘包、长度限制和截断），其余覆盖 HTTP 完整流程、未授权访问、非法 JSON/请求体、货币修改拒绝、版本冲突、幂等重试、制作与交易回滚、并发购买、卖家取消、小镇权限/容量、上海周边界、会话过期、事件隔离以及 SQLite 重启。
+37 项测试包含 2 项 APK HTTP 桥接测试、7 项角色编码/响应测试、6 项会话/TCP 测试、4 项消息体加密测试和 6 项原协议包头测试（字节序、拆包、粘包、长度限制和截断），其余覆盖 HTTP 完整流程、未授权访问、非法 JSON/请求体、货币修改拒绝、版本冲突、幂等重试、制作与交易回滚、并发购买、卖家取消、小镇权限/容量、上海周边界、会话过期、事件隔离以及 SQLite 重启。
 
-实现为单个本地进程，业务变更用 `BEGIN IMMEDIATE` 事务完成，所有 SQL 参数使用绑定。没有调用原游戏服务器或 SDK，没有修改原 APK，也没有将原 APK 的配置、代码数据或会话写入仓库。接口协议为此原型自定义，不能直接声称兼容原 APK。
+实现为单个本地进程，业务变更用 `BEGIN IMMEDIATE` 事务完成，所有 SQL 参数使用绑定。服务端不调用原游戏服务器或 SDK。构建器从输入 APK 生成独立测试包，输入文件保持不变；提取内容、原配置、APK、签名与会话不提交。HTTP 接口由本原型定义，仅修改后的客户端增加了适配；未修改的原 APK 不能直接连接。
 
 
 原协议传输实验可独立运行 `node prototypes/trail-server/legacy/wire-demo.mjs`。它使用临时密钥和合成客户端验证 RSA 握手、样例登录角色解码与 RC4 背包帧收发，运行完即关闭；不执行 SDK 登录或原 APK。当前适配范围和字段证据见 [原客户端适配记录](../../docs/trail-client-minimal-flow.md)。

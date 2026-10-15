@@ -1,6 +1,6 @@
-# 原 APK 最小流程：静态适配记录
+# 原 APK 最小流程：适配与运行验证记录
 
-目标是原客户端启动 → 本地登录 → 角色载入 → 背包显示。当前完成包头、消息体加密、合成 TCP 会话及角色响应验证和静态协议定位；尚未生成修改版 APK，也未验证原客户端连接。手机暂不可连接，按用户要求先完成静态准备。
+目标是原客户端启动 → 本地登录 → 角色载入 → 背包显示。当前已生成独立包名的 ARM64 测试 APK，在本机 Android 11 模拟器完成真实 HTTP 登录、角色列表和进入游戏消息收发，原 Lua 回调已处理响应。完整场景、角色出生和背包尚未完成，进入游戏后仍停在资源加载并出现原 SDK 网络提示。下文前四轮保留当时的静态证据，最新方案见第五轮。
 
 ## 已定位的原生逻辑
 
@@ -33,7 +33,7 @@ REA 完成 APK/Java 分析；原生全量分析超时后，使用 Il2CppDumper 6
 
 会话操作码为 1，心跳为 2。静态分支显示：RC4 初始化前发送 body 不加密；初始化前接收路径调用 RSA 解密，出现 OAEP 解格式化器。最新反汇编确认 OAEP 标志为 true，已用本地临时密钥实现测试握手；实际客户端密钥替换和运行效果尚未验证。登录成功后的角色必需字段、物品 UID/布局字段、SDK 本地替代入口和热更新行为也未完整确认。因此不能仅返回 `{status:0,items:[]}` 就声称最小流程可用。
 
-## 验证状态
+## 前四轮验证状态（历史记录，最新结果见第五轮）
 
 - 已通过：原生包头与反汇编交叉检查；6 项包头测试、4 项消息体加密测试、6 项会话/TCP 测试、7 项角色编码/响应测试和既有 12 项服务端测试。
 - 已通过：Mac 本地 HTTP 服务健康检查。
@@ -162,3 +162,58 @@ python3 scripts/inspect-character-protobuf.py \
 ```
 
 脚本针对此 APK 类型和属性布局，在无法确定构造参数或字段数量时失败，不猜测编号。本轮原生输出位于忽略目录 `native-role/`、`native-character/`、`native-character-codec/`。下一步需要确认出生场景和资源编号、补齐登录触发的其他请求，并处理原客户端的本地登录入口、地址及测试密钥配置，再重打包验证。
+
+## 第五轮：修改版 APK 的实际连接验证
+
+2026-10-15，已使用原 APK 重打包，而非另写一个诊断 App。产物为忽略目录 `outputs/rea-apk/trail-local-4.2.0-arm64.apk`，独立包名 `com.netease.ma71.local`，显示名称“边境之旅·本地测试”，约 700 MiB，仅 ARM64。保留原 Unity 引擎、场景、资源和业务脚本；使用本地测试签名，签名材料不提交。
+
+### 实际采用的连接路径
+
+解码 `lua.assetbundle` 后恢复了 857 个 TextAsset。`FileEncrypt.GenXorMap` 从元数据中的 256 个 int32 初始化交换映射；解码是先 XOR `0x47` 再查逆表。构建器校验字段数据 SHA-1、原 ARM64 库 SHA-256、UnityFS 头和往返字节，并在改写后重新读取 TextAsset。映射数据和提取脚本正文不提交。
+
+恢复的 `xMain.lua`、`client_net_mgr.lua`、`login_pto.lua`、`net_login.lua` 表明该版本的 Lua 网络层使用 MOS2/NEX。前四轮的 RSA/RC4 模块仍是独立兼容实验，不能代表已验证的运行通路。
+
+本地版在 `NetMgr` 的连接/发送方法接入 HTTP，将已解码的命令与字段 POST 到既有服务器的 `/api/client/message`，响应继续交给原 `NetMgr:OnRecv` 及 `NET_LOGIN` 回调。这是双方明确修改的本地传输适配，不是恢复了 MOS2/NEX 原始字节协议。
+
+ARM64 补丁保留 `CoStart` 中的 Lua bundle 加载，将 `InitUpdaterUI` 替换为调用 `GameStart` 后返回空协程，以跳过远程更新。仅选 `CoStartWithoutHotUpdate` 会漏掉 Lua bundle 加载，不能用于此包。登录场景的 Start 使用本地游客入口，绕过等待原 SDK 登录/远程服务器列表。Unity 的 `Put` 方法在该构建的 xLua 绑定中不可用，因此实际使用现有的 `Post(WWWForm)`，服务端只为此路由解析一个 `message` 表单字段。
+
+### 真实运行证据
+
+设备：本机新建 Android 11 / API 30 / ARM64 模拟器 `emulator-5554`。APK 成功通过 v1/v2/v3 签名验证并安装。通过 `adb reverse tcp:4317 tcp:4317` 访问 Mac 的 loopback HTTP 服务。
+
+首次通过的服务器时间为 2026-10-15T04:01:00Z（北京时间 12:01）。服务端记录顺序为：
+
+| 客户端命令 | 服务端事件 | 原客户端响应处理 |
+| --- | --- | --- |
+| 258 / C_LOGIN_AUTH | client.auth | 364 / S_LOGIN_AUTH 已处理 |
+| 263 / C_REQ_GET_ROLE_LIST | client.roles | 358 / S_GET_ROLE_LIST 已处理 |
+| 260 / C_LOGIN_ENTER | client.enter | 360 / S_LOGIN_ENTER 已处理 |
+| 1001 / C_AVATAR_CLIENT_DEVICE_INFO | client.device | 空响应，未收集设备信息 |
+
+证据文件均保持忽略：`outputs/rea-apk/client-minimal/local-client-runtime.log`、`local-server-runtime.log`、`android-local-connected-logcat.log`、`android-local-connected.png`。客户端日志由 APK 中运行的 Lua 写入应用目录；服务端日志只记录时间、命令号和事件，不记录会话 token 或 SDK 登录信息。
+
+模拟器为测试包 UID 设置了出站规则，只允许本地 4317 端口。原 SDK/遥测代码仍有后台网络尝试，已在此次隔离测试中被阻断；这不是已从 APK 移除全部外部依赖。实测进入游戏后仍处于资源加载，出现原 SDK 的网络错误提示。**可以确认新 APK 已真实连接本地服务器并处理登录链路；不能确认完整可玩、角色出生或背包显示。**
+
+服务端新增两项测试，全部 37 项通过，覆盖实际表单格式、原有 JSON 格式、游客限制、鉴权、会话过期、角色检查、未知命令和日志脱敏。未知命令返回 501，不伪造游戏成功响应。
+
+### 重建与连接
+
+所需工具安装在 `work/rea-apk/tools/`：JDK 21、Apktool 3.0.3、Android Build Tools 35.0.0，以及带 UnityPy 的 `resource-venv`。构建器只接受已分析 APK 的确切 SHA-256。
+
+```bash
+python3 scripts/build-trail-local-apk.py \
+  /Users/user/Downloads/com.netease.ma71_4.2.0.apk --reuse-decoded
+node prototypes/trail-server/server.mjs
+```
+
+首次没有 `work/rea-apk/decoded` 时不传 `--reuse-decoded`。构建器只清理自己解包树中未适配的其他 ABI；不修改输入 APK。APK、原始资源、工具、签名和运行数据不上传 GitHub。
+
+连接可用的 ARM64 Android 测试设备后（将设备序号替换为实际值）：
+
+```bash
+work/rea-apk/tools/platform-tools/adb -s DEVICE_SERIAL reverse tcp:4317 tcp:4317
+work/rea-apk/tools/platform-tools/adb -s DEVICE_SERIAL install -r outputs/rea-apk/trail-local-4.2.0-arm64.apk
+work/rea-apk/tools/platform-tools/adb -s DEVICE_SERIAL shell am start -n com.netease.ma71.local/com.netease.ma71.Ma71
+```
+
+本轮仅验证 API 30 模拟器，尚未验证用户手机及其他 Android 版本。手机上的外网隔离规则也未设置。应用默认自动执行本地游客登录，不需要原游戏账号。下一阶段需处理原 SDK 初始化残留、`S_AVATAR_INIT` 所需属性、有效场景/外观资源和新背包容器协议。

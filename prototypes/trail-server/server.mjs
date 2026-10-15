@@ -4,8 +4,9 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Game, GameError } from './game.mjs';
 import { catalog } from './catalog.mjs';
+import { clientMessage } from './client-bridge.mjs';
 
-function body(request) {
+function body(request, allowClientForm = false) {
   return new Promise((resolveBody, reject) => {
     let chunks = [], bytes = 0, done = false;
     const fail = error => { if (!done) { done = true; chunks = []; reject(error); } };
@@ -19,7 +20,13 @@ function body(request) {
       if (done) return;
       done = true;
       try {
-        const value = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {};
+        let text = Buffer.concat(chunks).toString('utf8');
+        if (allowClientForm && request.headers['content-type']?.split(';')[0] === 'application/x-www-form-urlencoded') {
+          const form = new URLSearchParams(text);
+          if (form.size !== 1 || !form.has('message')) throw new Error('One message field required');
+          text = form.get('message');
+        }
+        const value = chunks.length ? JSON.parse(text) : {};
         if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('JSON object required');
         resolveBody(value);
       } catch { reject(new GameError(400, 'invalid_json', 'A JSON object is required')); }
@@ -33,7 +40,7 @@ function send(response, status, data) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Length': Buffer.byteLength(value) });
   response.end(value);
 }
-export function createGameServer({ game = new Game(), onError = error => console.error(error.message) } = {}) {
+export function createGameServer({ game = new Game(), onError = error => console.error(error.message), onClientEvent = () => {} } = {}) {
   const server = createServer(async (request, response) => {
     try {
       const url = new URL(request.url, 'http://localhost');
@@ -42,6 +49,9 @@ export function createGameServer({ game = new Game(), onError = error => console
       if (request.method === 'GET' && path === '/health') result = { status: 'ok', mode: 'local-prototype', serverTime: game.now() };
       else if (request.method === 'GET' && path === '/api/catalog') result = catalog;
       else if (request.method === 'GET' && path === '/api/capabilities') result = game.capabilities();
+      else if (request.method === 'POST' && path === '/api/client/message') {
+        result = clientMessage(game, request.headers.authorization, await body(request, true), onClientEvent);
+      }
       else if (request.method === 'POST' && path === '/api/session') {
         result = game.createSession(await body(request));
         return send(response, 201, { ok: true, result });
@@ -82,7 +92,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   const dbPath = resolve(process.env.LOCAL_GAME_DB ?? resolve(root, 'outputs/trail-server/game.sqlite'));
   mkdirSync(dirname(dbPath), { recursive: true });
-  const { server, game } = createGameServer({ game: new Game(dbPath) });
+  const { server, game } = createGameServer({ game: new Game(dbPath), onClientEvent: event => console.log(JSON.stringify({ time: new Date().toISOString(), ...event })) });
   server.on('error', error => { console.error(error.message); game.close(); process.exitCode = 1; });
   server.listen(port, host, () => console.log(`Local game prototype: http://${host.includes(':') ? `[${host}]` : host}:${server.address().port}`));
   const stop = () => server.close(() => { game.close(); process.exit(0); });
