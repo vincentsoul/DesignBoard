@@ -18,6 +18,13 @@ namespace ToyGarden
         public bool IsAlive => Health > 0f;
         public float Health { get; private set; }
         public float MaxHealth { get; private set; }
+        public float CombatAttack => attackDamage;
+        public float CombatDefense { get; private set; }
+        public float CombatMoveSpeed => speed;
+        public float CritChance { get; private set; }
+        public float CritMultiplier { get; private set; } = 1.5f;
+        public float CooldownReduction { get; private set; }
+        public float LifeSteal { get; private set; }
         public float SkillCooldownRemaining => Mathf.Max(0f, skillCooldown);
         public float DodgeCooldownRemaining => Mathf.Max(0f, dodgeCooldown);
         public bool IsDodging => IsAlive && dodgeTimer > 0f;
@@ -126,6 +133,42 @@ namespace ToyGarden
                     MaxHealth = 560f; speed = 2.5f; attackDamage = 25f;
                     attackRange = 2.9f; attackInterval = 2.1f; skillInterval = 5f; break;
             }
+        }
+
+        public void ApplyGrowth(GearStats bonus)
+        {
+            if (!initialized || IsEnemy || bonus == null) return;
+            float fraction = MaxHealth > 0 ? Health / MaxHealth : 1f;
+            ConfigureStats();
+            MaxHealth += Mathf.Max(0f, bonus.health);
+            attackDamage += Mathf.Max(0f, bonus.attack);
+            CombatDefense = Mathf.Max(0f, bonus.defense);
+            CritChance = Mathf.Clamp(bonus.critChance, 0f, .65f);
+            CritMultiplier = 1.5f + Mathf.Clamp(bonus.critDamage, 0f, 2f);
+            CooldownReduction = Mathf.Clamp(bonus.cooldownReduction, 0f, .6f);
+            LifeSteal = Mathf.Clamp(bonus.lifeSteal, 0f, .25f);
+            speed *= 1f + Mathf.Clamp(bonus.moveSpeed, 0f, .5f);
+            Health = MaxHealth * fraction;
+        }
+
+        public void DealDamageTo(GardenActor target, float amount)
+        {
+            if (target == null || !IsAlive || amount <= 0 || game == null || !game.IsPlaying) return;
+            float before = target.Health;
+            bool critical = CritChance > 0f && Random.value < CritChance;
+            target.TakeDamage(amount * (critical ? CritMultiplier : 1f), transform.position);
+            float actual = Mathf.Max(0f, before - target.Health);
+            if (actual > 0f && LifeSteal > 0f) Heal(actual * LifeSteal);
+        }
+
+        internal void RestoreSnapshot(float health, Vector3 position, float skill, float dodge)
+        {
+            ResetActor();
+            Health = Mathf.Clamp(health, 0f, MaxHealth);
+            skillCooldown = Mathf.Clamp(skill, 0f, 30f);
+            dodgeCooldown = Mathf.Clamp(dodge, 0f, 5f);
+            Teleport(position);
+            if (!IsAlive) UpdateVisual(Vector3.zero, 1f);
         }
 
         public void SetMoveInput(Vector3 direction)
@@ -392,7 +435,7 @@ namespace ToyGarden
                 attackLength = kind == ActorKind.Hammer ? .65f : .34f;
             }
             attackCooldown = Mathf.Max(attackInterval, attackLength);
-            if (skill) skillCooldown = skillInterval;
+            if (skill) skillCooldown = skillInterval * (1f - CooldownReduction);
             return true;
         }
 
@@ -433,7 +476,7 @@ namespace ToyGarden
                 if (!radial && difference.sqrMagnitude > .01f
                     && Vector3.Dot(attackDirection, difference.normalized) < .18f) continue;
                 if (!HasClearStrike(target)) continue;
-                target.TakeDamage(damage, transform.position);
+                DealDamageTo(target, damage);
             }
             ShowImpact(currentRange, IsEnemy ? new Color(1f, .25f, .12f) : new Color(1f, .9f, .4f));
         }
@@ -469,7 +512,7 @@ namespace ToyGarden
         public void TakeDamage(float amount, Vector3 sourcePosition)
         {
             if (!initialized || !IsAlive || IsDodging || amount <= 0f || game == null || !game.IsPlaying) return;
-            Health = Mathf.Max(0f, Health - amount);
+            Health = Mathf.Max(0f, Health - amount * (100f / (100f + CombatDefense)));
             flashTimer = .13f;
             if (Health <= 0f)
             {

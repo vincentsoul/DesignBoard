@@ -17,11 +17,13 @@ namespace ToyGarden.Tests
         GardenChapter chapter;
         Keyboard testKeyboard;
         InputSettings originalInputSettings, isolatedInputSettings;
-        bool originalRunInBackground;
+        bool originalRunInBackground, originalPersistentSaves;
 
         [UnitySetUp]
         public IEnumerator LoadGarden()
         {
+            originalPersistentSaves = GardenGame.PersistentSavesEnabled;
+            GardenGame.PersistentSavesEnabled = false;
             yield return SceneManager.LoadSceneAsync("ToyGarden", LoadSceneMode.Single);
             yield return null;
             game = Object.FindAnyObjectByType<GardenGame>();
@@ -36,6 +38,7 @@ namespace ToyGarden.Tests
         [TearDown]
         public void RemoveSyntheticKeyboard()
         {
+            GardenGame.PersistentSavesEnabled = originalPersistentSaves;
             if (game != null) game.AcceptPlayerInput = false;
             if (testKeyboard != null && testKeyboard.added) InputSystem.RemoveDevice(testKeyboard);
             testKeyboard = null;

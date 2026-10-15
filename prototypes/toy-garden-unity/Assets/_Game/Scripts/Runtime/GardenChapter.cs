@@ -137,6 +137,7 @@ namespace ToyGarden
             RefreshGates();
             if (Gates.Any(gate => gate.puzzleId == puzzle.id && !gate.IsOpen && gate.encounterId > 0))
                 ShowMessage($"已解开{puzzle.title}。击败本区域敌人后即可开启通路。", 4f);
+            game.GrantPuzzleReward(puzzle.id);
         }
 
         public string InteractionHint
@@ -145,7 +146,7 @@ namespace ToyGarden
             {
                 var mechanism = NearestMechanism();
                 if (mechanism == null) return "";
-                if (mechanism.kind == MechanismKind.Chest) return mechanism.Used ? "已领取这份补给" : "E / Y：打开补给箱（存活队员各恢复 35 点生命）";
+                if (mechanism.kind == MechanismKind.Chest) return mechanism.Used ? "已领取这份补给" : "E / Y：打开宝箱（装备、材料与生命补给）";
                 if (mechanism.kind == MechanismKind.Exit) return CanExit ? "E / Y：完成风车谷章节" : "解开全部 7 处机关并完成 6 场战斗后即可离开";
                 return FindPuzzle(mechanism)?.HintFor(mechanism) ?? "";
             }
@@ -161,7 +162,7 @@ namespace ToyGarden
                     if (mechanism.Used) return false;
                     mechanism.SetUsed(true);
                     foreach (var hero in game.Heroes) if (hero.IsAlive) hero.Heal(35f);
-                    ShowMessage("已取得补给，存活的队员各恢复 35 点生命。", 4f);
+                    game.GrantChestReward(mechanism.index);
                     return true;
                 case MechanismKind.Exit:
                     if (!CanExit) { ShowMessage("请先修复山谷中的机关，并击败风车守卫。"); return false; }

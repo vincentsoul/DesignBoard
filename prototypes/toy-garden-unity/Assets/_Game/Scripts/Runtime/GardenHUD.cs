@@ -24,7 +24,7 @@ namespace ToyGarden
 
         void OnGUI()
         {
-            if (game == null) return;
+            if (game == null || game.EquipmentOpen) return;
             if (title == null) InitStyles();
             var oldMatrix = GUI.matrix;
             float scale = Mathf.Clamp(Screen.width / 1280f, .65f, 1.7f);
@@ -33,6 +33,7 @@ namespace ToyGarden
             Panel(new Rect(24, 22, 345, 86), ink);
             GUI.Label(new Rect(42, 32, 320, 32), game.Chapter != null ? "风车谷" : "风车花园", title);
             GUI.Label(new Rect(43, 69, 310, 30), game.Chapter?.CurrentRegion?.title ?? "箱庭冒险 · 小队战斗", body);
+            if (GUI.Button(new Rect(390, 22, 150, 42), "角色与装备 / I", button)) game.ToggleEquipment();
             Panel(new Rect(w - 425, 22, 401, 108), ink);
             GUI.Label(new Rect(w - 407, 34, 365, 62), game.Objective, body);
             GUI.Label(new Rect(w - 407, 100, 365, 25), game.Chapter != null ?
@@ -53,15 +54,15 @@ namespace ToyGarden
                 GUI.color = Color.clear;
                 if (GUI.Button(r, GUIContent.none)) game.SwitchTo(i);
                 GUI.color = Color.white;
-                GUI.Label(new Rect(x + 12, h - 117, 175, 23), GardenGame.RoleName(hero.kind) + (hero == game.ActiveHero ? "  *" : ""), body);
+                GUI.Label(new Rect(x + 12, h - 117, 175, 23), GardenGame.RoleName(hero.kind) + $" Lv.{game.Progression.GetHero(hero.kind).level}" + (hero == game.ActiveHero ? "  *" : ""), body);
                 var bar = new Rect(x + 12, h - 87, 175, 7);
                 Panel(bar, new Color(.2f, .26f, .3f));
                 Panel(new Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(hero.Health / Mathf.Max(1, hero.MaxHealth)), bar.height), roles[i]);
-                string status = !hero.IsAlive ? "已倒下" : $"生命 {Mathf.CeilToInt(hero.Health)} / {hero.MaxHealth:0}    Q {(hero.SkillCooldownRemaining > 0 ? hero.SkillCooldownRemaining.ToString("0.0") + "秒" : "就绪")}";
+                string status = !hero.IsAlive ? "已倒下" : $"生命 {Mathf.CeilToInt(hero.Health)} / {Mathf.CeilToInt(hero.MaxHealth)}    Q {(hero.SkillCooldownRemaining > 0 ? hero.SkillCooldownRemaining.ToString("0.0") + "秒" : "就绪")}";
                 GUI.Label(new Rect(x + 12, h - 70, 178, 24), status, small);
             }
             Panel(new Rect(0, h - 29, w, 29), ink);
-            GUI.Label(new Rect(24, h - 27, w - 40, 26), "WASD 移动   J / 左键 攻击   空格 闪避   Q 技能   Tab 切人   E 交互 / 推箱   M 地图   Esc 暂停", small);
+            GUI.Label(new Rect(24, h - 27, w - 40, 26), "WASD 移动   J / 左键 攻击   空格 闪避   Q 技能   Tab 切人   E 交互 / 推箱   M 地图   I 装备   Esc 暂停", small);
             string hint = game.InteractionHint;
             if (hint.Length > 0)
             {

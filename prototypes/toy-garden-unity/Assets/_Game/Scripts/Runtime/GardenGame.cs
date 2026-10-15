@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 namespace ToyGarden
 {
     [DefaultExecutionOrder(-100)]
-    public sealed class GardenGame : MonoBehaviour
+    public sealed partial class GardenGame : MonoBehaviour
     {
         public static GardenGame Instance { get; private set; }
         public Vector3 encounterOneCenter = new(-10, 0, -5);
@@ -24,7 +24,7 @@ namespace ToyGarden
         public GardenActor ActiveHero { get; private set; }
         public GardenChapter Chapter { get; private set; }
         public bool MapOpen { get; private set; }
-        public bool IsPlaying => !Paused && !MapOpen && !GameOver && !Won;
+        public bool IsPlaying => !Paused && !MapOpen && !EquipmentOpen && !GameOver && !Won;
         public bool IsCombatActive => activeEncounters.Any(active => active);
         public bool Paused { get; private set; }
         public bool GameOver { get; private set; }
@@ -43,7 +43,7 @@ namespace ToyGarden
         readonly bool[] activeEncounters = new bool[32];
         readonly bool[] clearedEncounters = new bool[32];
         InputActionMap inputs;
-        InputAction move, attack, dodge, skill, switchNext, interact, pause, restart, map;
+        InputAction move, attack, dodge, skill, switchNext, interact, pause, restart, map, equipment;
         string message;
         float messageUntil;
         Quaternion closedLid;
@@ -51,6 +51,8 @@ namespace ToyGarden
         void Awake()
         {
             Instance = this;
+            usePersistentSaves = PersistentSavesEnabled;
+            Progression = GardenProgression.CreateDefault();
             Application.targetFrameRate = 60;
             Physics.IgnoreLayerCollision(8, 8, true);
             var actors = FindObjectsByType<GardenActor>(FindObjectsSortMode.None);
@@ -65,10 +67,13 @@ namespace ToyGarden
             if (chestLid != null) closedLid = chestLid.localRotation;
             Chapter = GetComponent<GardenChapter>();
             Chapter?.Initialize(this);
+            LoadProgress();
+            RefreshHeroStats();
             ConfigureInput();
             if (!TryGetComponent<GardenCameraRig>(out _)) gameObject.AddComponent<GardenCameraRig>();
             if (!TryGetComponent<GardenHUD>(out _)) gameObject.AddComponent<GardenHUD>();
-            ShowMessage(Chapter != null ? "欢迎来到风车谷。按 E 交互，按 M 查看章节地图。" : "探索花园吧，伙伴们会跟随你。", 5);
+            if (!TryGetComponent<GardenEquipmentUI>(out _)) gameObject.AddComponent<GardenEquipmentUI>();
+            ShowMessage(loadBlocked ? SaveStatus : "欢迎来到风车谷。按 E 交互，按 M 查看地图，按 I 打开角色与装备。", loadBlocked ? 12 : 5);
         }
 
         void ConfigureInput()
@@ -87,6 +92,7 @@ namespace ToyGarden
             pause = Button("Pause", "<Keyboard>/escape", "<Gamepad>/start");
             restart = Button("Restart", "<Keyboard>/r", "<Gamepad>/select");
             map = Button("Map", "<Keyboard>/m", "<Gamepad>/rightShoulder");
+            equipment = Button("Equipment", "<Keyboard>/i", "<Gamepad>/dpad/up");
             inputs.Enable();
         }
 
@@ -100,19 +106,23 @@ namespace ToyGarden
 
         void Update()
         {
-            if (AcceptPlayerInput && map.WasPressedThisFrame() && !Paused && !GameOver && !Won)
+            if (AcceptPlayerInput && equipment.WasPressedThisFrame()) ToggleEquipment();
+            if (AcceptPlayerInput && !EquipmentOpen && map.WasPressedThisFrame() && !Paused && !GameOver && !Won)
             {
                 MapOpen = !MapOpen;
                 foreach (var hero in Heroes) hero.SetMoveInput(Vector3.zero);
             }
             if (AcceptPlayerInput && pause.WasPressedThisFrame())
             {
-                if (MapOpen) MapOpen = false;
+                if (EquipmentOpen) CloseEquipment();
+                else if (MapOpen) MapOpen = false;
                 else TogglePause();
             }
             if (AcceptPlayerInput && (GameOver || Won) && restart.WasPressedThisFrame()) RestartGame();
             if (!IsPlaying || ActiveHero == null) return;
             Elapsed += Time.deltaTime;
+            saveTimer += Time.unscaledDeltaTime;
+            if (saveTimer >= 12f) { saveTimer = 0f; SaveProgress(); }
             if (AcceptPlayerInput)
             {
                 if (switchNext.WasPressedThisFrame()) SwitchHero();
@@ -189,7 +199,7 @@ namespace ToyGarden
             if (actor.IsEnemy)
             {
                 int id = actor.encounterId;
-                if (id > 0 && id < activeEncounters.Length && !Enemies.Any(e => e.encounterId == id && e.IsAlive))
+                if (id > 0 && id < activeEncounters.Length && !clearedEncounters[id] && !Enemies.Any(e => e.encounterId == id && e.IsAlive))
                 {
                     activeEncounters[id] = false;
                     clearedEncounters[id] = true;
@@ -197,6 +207,7 @@ namespace ToyGarden
                         id == 1 ? "广场已清理！沿坡道前往果园。" : "已击败风车守卫！出口已经开放。", 5);
                     if (Chapter != null) Chapter.TickChapter();
                     else if (ClearedCount == 2 && exitGate != null) exitGate.gameObject.SetActive(false);
+                    RewardEncounter(id);
                 }
             }
             else
@@ -207,6 +218,7 @@ namespace ToyGarden
                     foreach (var hero in Heroes) hero.SetMoveInput(Vector3.zero);
                 }
                 else if (actor == ActiveHero) SwitchHero();
+                SaveProgress();
             }
         }
 
@@ -251,21 +263,44 @@ namespace ToyGarden
             foreach (var hero in Heroes) hero.SetMoveInput(Vector3.zero);
         }
 
+        public void ToggleEquipment()
+        {
+            if (EquipmentOpen) { CloseEquipment(); return; }
+            EquipmentOpen = true;
+            MapOpen = false;
+            foreach (var hero in Heroes) hero.SetMoveInput(Vector3.zero);
+        }
+
+        public void CloseEquipment()
+        {
+            EquipmentOpen = false;
+            SaveProgress();
+        }
+
+        public void RefreshHeroStats()
+        {
+            if (Progression == null) return;
+            foreach (var hero in Heroes) hero.ApplyGrowth(Progression.AggregateStats(hero.kind));
+        }
+
         public void CompleteAdventure()
         {
             if (!IsPlaying || (Chapter != null && !Chapter.CanExit)) return;
             Won = true;
             foreach (var hero in Heroes) hero.SetMoveInput(Vector3.zero);
+            SaveProgress();
         }
 
         void OnApplicationFocus(bool focused)
         {
-            if (!focused && AcceptPlayerInput && !GameOver && !Won) Paused = true;
+            if (!focused && AcceptPlayerInput && !GameOver && !Won && !EquipmentOpen) Paused = true;
+            if (!focused) SaveProgress();
         }
 
         public void RestartGame()
         {
-            Paused = GameOver = Won = HasChest = MapOpen = false;
+            Paused = GameOver = Won = HasChest = MapOpen = EquipmentOpen = false;
+            rewardClaims.Clear();
             Elapsed = 0;
             System.Array.Clear(activeEncounters, 0, activeEncounters.Length);
             System.Array.Clear(clearedEncounters, 0, clearedEncounters.Length);
@@ -280,7 +315,8 @@ namespace ToyGarden
             if (exitGate != null) exitGate.gameObject.SetActive(true);
             if (chestLid != null) chestLid.localRotation = closedLid;
             Chapter?.ResetChapter();
-            ShowMessage("重新出发，探索风车谷吧。", 3);
+            SaveProgress();
+            ShowMessage("章节已重置，角色等级与全部装备已保留。", 3);
         }
 
         public void ShowMessage(string text, float seconds = 2f)
@@ -294,6 +330,7 @@ namespace ToyGarden
             if (attack.activeControl?.device is not Mouse || Mouse.current == null) return false;
             float scale = Mathf.Clamp(Screen.width / 1280f, .65f, 1.7f);
             Vector2 pointer = Mouse.current.position.ReadValue() / scale;
+            if (new Rect(390, 22, 150, 42).Contains(new Vector2(pointer.x, Screen.height / scale - pointer.y))) return true;
             return pointer.y >= 38 && pointer.y <= 126 && pointer.x >= 24 && pointer.x <= 24 + Heroes.Count * 209;
         }
 

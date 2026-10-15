@@ -79,7 +79,8 @@ namespace ToyGarden
                 if (hitActor != null)
                 {
                     attackHits.Add(hitActor);
-                    hitActor.TakeDamage(damage, owner != null ? owner.transform.position : from);
+                    if (owner != null) owner.DealDamageTo(hitActor, damage);
+                    else hitActor.TakeDamage(damage, from);
                 }
                 Destroy(gameObject);
                 return;

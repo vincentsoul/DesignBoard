@@ -49,6 +49,31 @@ namespace ToyGarden
             Physics.SyncTransforms();
         }
 
+        internal void RestoreSnapshot(GardenPuzzleSave state)
+        {
+            ResetPuzzle();
+            Solved = state.solved;
+            CrateCell = IsCellOpen(state.crate) ? state.crate : crateStart;
+            if (Solved && kind == PuzzleKind.PushBlock) CrateCell = crateGoal;
+            SequenceProgress = Mathf.Clamp(state.sequence, 0, Solved ? solution.Length : Mathf.Max(0, solution.Length - 1));
+            if (Solved && kind == PuzzleKind.Sequence) SequenceProgress = solution.Length;
+            for (int i = 0; i < values.Length; i++)
+                values[i] = Solved ? solution[i] : state.values != null && i < state.values.Length ? Mathf.Clamp(state.values[i], 0, 3) : 0;
+            foreach (var mechanism in mechanisms)
+            {
+                if (mechanism.kind == MechanismKind.Crate) mechanism.transform.position = CellPosition(CrateCell);
+                else if (mechanism.kind == MechanismKind.Dial && mechanism.index >= 0 && mechanism.index < values.Length)
+                    mechanism.SetDialValue(values[mechanism.index]);
+                else if (mechanism.kind == MechanismKind.Lever) mechanism.SetUsed(Solved);
+                else if (mechanism.kind == MechanismKind.SequenceSwitch)
+                {
+                    bool used = false;
+                    for (int i = 0; i < SequenceProgress; i++) used |= solution[i] == mechanism.index;
+                    mechanism.SetUsed(used);
+                }
+            }
+        }
+
         public Vector3 CellPosition(Vector2Int cell) => gridOrigin + new Vector3(cell.x * cellSize, 0f, cell.y * cellSize);
 
         public bool IsCellOpen(Vector2Int cell)
