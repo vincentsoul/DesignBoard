@@ -1,0 +1,4 @@
+Noto Sans CJK SC Regular
+Source: https://github.com/notofonts/noto-cjk/blob/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf
+License: SIL Open Font License 1.1 (see OFL.txt)
+Original font file, unmodified. Bundled for Chinese HUD, map and world signs.

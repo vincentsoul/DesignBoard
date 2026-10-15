@@ -17,7 +17,8 @@ namespace ToyGarden
             Fill(bounds, background);
             var label = new GUIStyle(GUI.skin.label)
             {
-                fontSize = expanded ? 15 : 11,
+                font = GardenLanguage.Font,
+                fontSize = expanded ? 16 : 12,
                 alignment = TextAnchor.MiddleCenter,
                 wordWrap = true,
                 fontStyle = FontStyle.Bold
@@ -26,7 +27,7 @@ namespace ToyGarden
             Rect canvas = new(bounds.x + 13, bounds.y + 13, bounds.width - 26, bounds.height - 26);
             if (!expanded)
             {
-                GUI.Label(new Rect(bounds.x, bounds.y + 2, bounds.width, 19), "M  CHAPTER MAP", label);
+                GUI.Label(new Rect(bounds.x, bounds.y + 2, bounds.width, 19), "M  章节地图", label);
                 canvas.y += 15; canvas.height -= 15;
             }
             Vector2 min = new(float.PositiveInfinity, float.PositiveInfinity);

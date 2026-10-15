@@ -35,10 +35,10 @@ namespace ToyGarden
         public string Message => Time.unscaledTime < messageUntil ? message : "";
         public int TotalEncounters => Chapter != null ? Chapter.encounters.Length : 2;
         public int ClearedCount => clearedEncounters.Count(cleared => cleared);
-        public string Objective => Won ? "The windmill path is clear." : GameOver ? "Your party has fallen." :
+        public string Objective => Won ? "风车谷的道路已经畅通。" : GameOver ? "队伍已全部倒下。" :
             Chapter != null ? Chapter.Objective :
-            !clearedEncounters[1] ? "Clear the garden plaza" : !clearedEncounters[2] ?
-            "Climb the ramp and defeat the windmill guardian" : "Reach the exit arch and press E";
+            !clearedEncounters[1] ? "击败花园广场的敌人" : !clearedEncounters[2] ?
+            "沿坡道向上，击败风车守卫" : "前往出口拱门，按 E 离开";
 
         readonly bool[] activeEncounters = new bool[32];
         readonly bool[] clearedEncounters = new bool[32];
@@ -68,7 +68,7 @@ namespace ToyGarden
             ConfigureInput();
             if (!TryGetComponent<GardenCameraRig>(out _)) gameObject.AddComponent<GardenCameraRig>();
             if (!TryGetComponent<GardenHUD>(out _)) gameObject.AddComponent<GardenHUD>();
-            ShowMessage(Chapter != null ? "Windmill Valley. E to interact, M for the chapter map." : "Explore the garden. Your companions will follow.", 5);
+            ShowMessage(Chapter != null ? "欢迎来到风车谷。按 E 交互，按 M 查看章节地图。" : "探索花园吧，伙伴们会跟随你。", 5);
         }
 
         void ConfigureInput()
@@ -139,7 +139,7 @@ namespace ToyGarden
             if (ActiveHero.transform.position.y < -5)
             {
                 ActiveHero.Teleport(ActiveHero.HomePosition);
-                ShowMessage("Back on the path.");
+                ShowMessage("已返回安全道路。");
             }
         }
 
@@ -152,8 +152,8 @@ namespace ToyGarden
             if (Chapter != null && !Chapter.CanActivateEncounter(id)) return;
             if (Chapter == null && id == 2 && !clearedEncounters[1]) return;
             activeEncounters[id] = true;
-            ShowMessage(Chapter != null ? $"Encounter {id}/{TotalEncounters} - watch the warning rings!" :
-                id == 1 ? "Garden skirmish - dodge the warning rings!" : "Windmill guardian - watch the wind-up!", 4);
+            ShowMessage(Chapter != null ? $"战斗 {id}/{TotalEncounters}：注意躲避攻击预警圈！" :
+                id == 1 ? "花园遭遇战：注意躲避攻击预警圈！" : "风车守卫：留意蓄力攻击！", 4);
         }
 
         public bool SwitchHero(int direction = 1)
@@ -180,7 +180,7 @@ namespace ToyGarden
             ActiveHero = Heroes[index];
             ActiveHero.IsPlayerControlled = true;
             ActiveHero.SetMoveInput(Vector3.zero);
-            ShowMessage($"{RoleName(ActiveHero.kind)} ready", 1.4f);
+            ShowMessage($"已切换为{RoleName(ActiveHero.kind)}", 1.4f);
             return true;
         }
 
@@ -193,8 +193,8 @@ namespace ToyGarden
                 {
                     activeEncounters[id] = false;
                     clearedEncounters[id] = true;
-                    ShowMessage(Chapter != null ? $"Area clear! {ClearedCount}/{TotalEncounters} encounters complete." :
-                        id == 1 ? "Plaza clear! Follow the ramp to the orchard." : "Guardian defeated! The exit is open.", 5);
+                    ShowMessage(Chapter != null ? $"区域已清理！已完成 {ClearedCount}/{TotalEncounters} 场战斗。" :
+                        id == 1 ? "广场已清理！沿坡道前往果园。" : "已击败风车守卫！出口已经开放。", 5);
                     if (Chapter != null) Chapter.TickChapter();
                     else if (ClearedCount == 2 && exitGate != null) exitGate.gameObject.SetActive(false);
                 }
@@ -216,9 +216,9 @@ namespace ToyGarden
             {
                 if (ActiveHero == null || !IsPlaying) return "";
                 if (Chapter != null) return Chapter.InteractionHint;
-                if (!HasChest && Vector3.Distance(ActiveHero.transform.position, chestPosition) < 3.5f) return "E / Y  -  Open supply chest";
+                if (!HasChest && Vector3.Distance(ActiveHero.transform.position, chestPosition) < 3.5f) return "E / Y：打开补给箱";
                 if (Vector3.Distance(ActiveHero.transform.position, exitPosition) < 4)
-                    return ClearedCount == 2 ? "E / Y  -  Leave the garden" : "Clear both encounters to open the exit";
+                    return ClearedCount == 2 ? "E / Y：离开花园" : "完成两场战斗后开启出口";
                 return "";
             }
         }
@@ -232,7 +232,7 @@ namespace ToyGarden
                 HasChest = true;
                 if (chestLid != null) chestLid.localRotation = closedLid * Quaternion.Euler(-75, 0, 0);
                 foreach (var hero in Heroes.Where(h => h.IsAlive)) hero.Heal(35);
-                ShowMessage("Supplies found - the party recovers 35 health.", 4);
+                ShowMessage("找到补给！存活的队员各恢复 35 点生命。", 4);
                 return true;
             }
             if (ClearedCount == 2 && Vector3.Distance(ActiveHero.transform.position, exitPosition) < 4)
@@ -280,7 +280,7 @@ namespace ToyGarden
             if (exitGate != null) exitGate.gameObject.SetActive(true);
             if (chestLid != null) chestLid.localRotation = closedLid;
             Chapter?.ResetChapter();
-            ShowMessage("A fresh start. Explore the garden.", 3);
+            ShowMessage("重新出发，探索风车谷吧。", 3);
         }
 
         public void ShowMessage(string text, float seconds = 2f)
@@ -300,8 +300,8 @@ namespace ToyGarden
         public static float FlatDistance(Vector3 a, Vector3 b) { a.y = b.y = 0; return Vector3.Distance(a, b); }
         public static string RoleName(ActorKind kind) => kind switch
         {
-            ActorKind.Blade => "BLADE", ActorKind.Hammer => "HAMMER", ActorKind.Ranger => "RANGER",
-            ActorKind.Boss => "WINDMILL GUARDIAN", ActorKind.Spitter => "SEED SPITTER", _ => "GARDEN GRUNT"
+            ActorKind.Blade => "剑士", ActorKind.Hammer => "重锤手", ActorKind.Ranger => "游侠",
+            ActorKind.Boss => "风车守卫", ActorKind.Spitter => "吐籽怪", _ => "花园小怪"
         };
 
         void OnDestroy()

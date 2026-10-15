@@ -72,7 +72,7 @@ namespace ToyGarden
                     break;
                 case PuzzleKind.PushBlock when mechanism.kind == MechanismKind.ResetCrate:
                     ResetPuzzle();
-                    Tell("Block returned to its starting tile.");
+                    Tell("木箱已返回起始格。");
                     return true;
                 case PuzzleKind.PushBlock when mechanism.kind == MechanismKind.Crate:
                     accepted = PushCrate(mechanism, actorPosition);
@@ -92,14 +92,14 @@ namespace ToyGarden
                         SequenceProgress++;
                         mechanism.SetUsed(true);
                         Solved = SequenceProgress == solution.Length;
-                        Tell(Solved ? "The chimes are in harmony." : $"Chime {SequenceProgress} / {solution.Length} correct.");
+                        Tell(Solved ? "风铃已经奏出和谐的旋律。" : $"顺序正确：{SequenceProgress}/{solution.Length}。");
                     }
                     else
                     {
                         foreach (var item in mechanisms) item.SetUsed(false);
                         SequenceProgress = mechanism.index == solution[0] ? 1 : 0;
                         if (SequenceProgress == 1) mechanism.SetUsed(true);
-                        Tell("Listen to the clue and begin the chimes again.");
+                        Tell("顺序有误，请根据线索重新敲响风铃。");
                     }
                     accepted = true;
                     break;
@@ -117,7 +117,7 @@ namespace ToyGarden
             relative.y = 0f;
             if (relative.sqrMagnitude < .25f)
             {
-                Tell("Stand beside the block, facing the direction you want to push.");
+                Tell("站到木箱一侧，朝想推动的方向操作。");
                 return false;
             }
             Vector2Int direction = Mathf.Abs(relative.x) > Mathf.Abs(relative.z)
@@ -126,13 +126,13 @@ namespace ToyGarden
             float crossOffset = direction.x != 0 ? Mathf.Abs(relative.z) : Mathf.Abs(relative.x);
             if (crossOffset > cellSize * .5f)
             {
-                Tell("Stand straight behind the block to push one tile.");
+                Tell("对正木箱一侧，即可向前推动一格。");
                 return false;
             }
             var destination = CrateCell + direction;
             if (!IsCellOpen(destination))
             {
-                Tell("That tile is blocked. Use the reset crank if you need a fresh start.");
+                Tell("前方格子无法通过。需要重来时，请使用重置摇柄。");
                 return false;
             }
             Vector3 nextPosition = CellPosition(destination);
@@ -146,7 +146,7 @@ namespace ToyGarden
                 {
                     if (obstruction.transform.IsChildOf(mechanism.transform)
                         || obstruction.GetComponentInParent<GardenActor>() != null) continue;
-                    Tell("There is no room for the block on that tile.");
+                    Tell("前方空间不足，无法推动木箱。");
                     return false;
                 }
             }
@@ -154,20 +154,20 @@ namespace ToyGarden
             mechanism.transform.position = nextPosition;
             Physics.SyncTransforms();
             Solved = CrateCell == crateGoal;
-            if (!Solved) Tell("Block moved. Push it onto the glowing pressure tile.");
+            if (!Solved) Tell("木箱已移动，请将它推到发光的压力板上。");
             return true;
         }
 
         internal string HintFor(GardenMechanism mechanism)
         {
-            if (Solved) return $"{title} - restored";
-            if (mechanism.kind == MechanismKind.ResetCrate) return "E / Y  -  Reset block to the starting tile";
+            if (Solved) return $"{title} · 已完成";
+            if (mechanism.kind == MechanismKind.ResetCrate) return "E / Y：将木箱重置到起始格";
             return kind switch
             {
-                PuzzleKind.Lever => "E / Y  -  Pull lever and restore the route",
-                PuzzleKind.PushBlock => "E / Y  -  Push one tile away from you; reach the glowing tile",
-                PuzzleKind.Dials => $"E / Y  -  Turn dial {mechanism.index + 1}   [{string.Join(" / ", values)}]   Target: {string.Join(" / ", solution)}",
-                PuzzleKind.Sequence => $"E / Y  -  Ring chime {mechanism.index + 1}   ({SequenceProgress}/{solution.Length})   Clue: {SequenceClue()}",
+                PuzzleKind.Lever => "E / Y：拉动拉杆，修复通路",
+                PuzzleKind.PushBlock => "E / Y：向前推一格，将木箱推到发光格上",
+                PuzzleKind.Dials => $"E / Y：旋转 {mechanism.index + 1} 号转盘　当前：{DialDirections(values)}　目标：{DialDirections(solution)}",
+                PuzzleKind.Sequence => $"E / Y：敲响 {mechanism.index + 1} 号风铃（{SequenceProgress}/{solution.Length}）　顺序：{SequenceClue()}",
                 _ => ""
             };
         }
@@ -177,6 +177,14 @@ namespace ToyGarden
             var labels = new string[solution.Length];
             for (int i = 0; i < solution.Length; i++) labels[i] = (solution[i] + 1).ToString();
             return string.Join(" > ", labels);
+        }
+
+        static string DialDirections(IReadOnlyList<int> directions)
+        {
+            var labels = new string[directions.Count];
+            for (int i = 0; i < directions.Count; i++)
+                labels[i] = directions[i] switch { 0 => "北", 1 => "东", 2 => "南", 3 => "西", _ => directions[i].ToString() };
+            return string.Join(" / ", labels);
         }
 
         void Tell(string text, float seconds = 2f) => chapter?.ShowMessage(text, seconds);

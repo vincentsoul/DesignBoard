@@ -14,11 +14,11 @@ namespace ToyGarden
 
         void InitStyles()
         {
-            title = new GUIStyle(GUI.skin.label) { fontSize = 25, fontStyle = FontStyle.Bold };
-            body = new GUIStyle(GUI.skin.label) { fontSize = 16, wordWrap = true };
-            small = new GUIStyle(GUI.skin.label) { fontSize = 12, wordWrap = true };
+            title = new GUIStyle(GUI.skin.label) { font = GardenLanguage.Font, fontSize = 25, fontStyle = FontStyle.Bold };
+            body = new GUIStyle(GUI.skin.label) { font = GardenLanguage.Font, fontSize = 16, wordWrap = true };
+            small = new GUIStyle(GUI.skin.label) { font = GardenLanguage.Font, fontSize = 13, wordWrap = true };
             center = new GUIStyle(body) { alignment = TextAnchor.MiddleCenter };
-            button = new GUIStyle(GUI.skin.button) { fontSize = 16, padding = new RectOffset(12, 12, 9, 9) };
+            button = new GUIStyle(GUI.skin.button) { font = GardenLanguage.Font, fontSize = 16, padding = new RectOffset(12, 12, 9, 9) };
             title.normal.textColor = body.normal.textColor = small.normal.textColor = center.normal.textColor = Color.white;
         }
 
@@ -31,13 +31,13 @@ namespace ToyGarden
             float w = Screen.width / scale, h = Screen.height / scale;
             GUI.matrix = Matrix4x4.Scale(Vector3.one * scale);
             Panel(new Rect(24, 22, 345, 86), ink);
-            GUI.Label(new Rect(42, 32, 320, 32), game.Chapter != null ? "WINDMILL VALLEY" : "WINDMILL GARDEN", title);
-            GUI.Label(new Rect(43, 69, 310, 30), game.Chapter?.CurrentRegion?.title ?? "TOY GARDEN / PARTY ACTION", body);
+            GUI.Label(new Rect(42, 32, 320, 32), game.Chapter != null ? "风车谷" : "风车花园", title);
+            GUI.Label(new Rect(43, 69, 310, 30), game.Chapter?.CurrentRegion?.title ?? "箱庭冒险 · 小队战斗", body);
             Panel(new Rect(w - 425, 22, 401, 108), ink);
             GUI.Label(new Rect(w - 407, 34, 365, 62), game.Objective, body);
             GUI.Label(new Rect(w - 407, 100, 365, 25), game.Chapter != null ?
-                $"BATTLES {game.ClearedCount}/{game.TotalEncounters}   PUZZLES {game.Chapter.SolvedCount}/7   CHESTS {game.Chapter.SupplyCount}" :
-                $"ENCOUNTERS {game.ClearedCount}/2   SUPPLIES {(game.HasChest ? "FOUND" : "HIDDEN")}", small);
+                $"战斗 {game.ClearedCount}/{game.TotalEncounters}   谜题 {game.Chapter.SolvedCount}/7   宝箱 {game.Chapter.SupplyCount}" :
+                $"战斗 {game.ClearedCount}/2   补给 {(game.HasChest ? "已找到" : "未发现")}", small);
             if (game.Message.Length > 0)
             {
                 Panel(new Rect(w / 2 - 280, 145, 560, 48), new Color(.05f, .12f, .18f, .8f));
@@ -57,11 +57,11 @@ namespace ToyGarden
                 var bar = new Rect(x + 12, h - 87, 175, 7);
                 Panel(bar, new Color(.2f, .26f, .3f));
                 Panel(new Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(hero.Health / Mathf.Max(1, hero.MaxHealth)), bar.height), roles[i]);
-                string status = !hero.IsAlive ? "DOWN" : $"HP {Mathf.CeilToInt(hero.Health)} / {hero.MaxHealth:0}    Q {(hero.SkillCooldownRemaining > 0 ? hero.SkillCooldownRemaining.ToString("0.0") + "s" : "READY")}";
+                string status = !hero.IsAlive ? "已倒下" : $"生命 {Mathf.CeilToInt(hero.Health)} / {hero.MaxHealth:0}    Q {(hero.SkillCooldownRemaining > 0 ? hero.SkillCooldownRemaining.ToString("0.0") + "秒" : "就绪")}";
                 GUI.Label(new Rect(x + 12, h - 70, 178, 24), status, small);
             }
             Panel(new Rect(0, h - 29, w, 29), ink);
-            GUI.Label(new Rect(24, h - 27, w - 40, 26), "WASD MOVE   J / LMB ATTACK   SPACE DODGE   Q SKILL   TAB SWITCH   E INTERACT / PUSH   M MAP   ESC PAUSE", small);
+            GUI.Label(new Rect(24, h - 27, w - 40, 26), "WASD 移动   J / 左键 攻击   空格 闪避   Q 技能   Tab 切人   E 交互 / 推箱   M 地图   Esc 暂停", small);
             string hint = game.InteractionHint;
             if (hint.Length > 0)
             {
@@ -74,28 +74,28 @@ namespace ToyGarden
             if (game.MapOpen)
             {
                 Panel(new Rect(0, 0, w, h), new Color(.025f, .07f, .11f, 1f));
-                GUI.Label(new Rect(45, 25, w - 90, 45), "WINDMILL VALLEY / CHAPTER MAP", title);
+                GUI.Label(new Rect(45, 25, w - 90, 45), "风车谷 · 章节地图", title);
                 GUI.Label(new Rect(45, 77, w - 90, 50), game.Objective, body);
                 GardenChapterMap.Draw(game, new Rect(45, 140, w - 400, h - 190), true);
-                GUI.Label(new Rect(w - 320, 145, 290, 55), "Eight gardens, one\nconnected journey", body);
-                GUI.Label(new Rect(w - 320, 214, 285, 65), "Blue: your party\nGold: closed route\nGreen: open route", body);
+                GUI.Label(new Rect(w - 320, 145, 290, 55), "八座花园，一段冒险", body);
+                GUI.Label(new Rect(w - 320, 214, 285, 82), "蓝色：小队位置\n金色：尚未开放\n绿色：已经开放", body);
                 float yy = 305;
                 foreach (var puzzle in game.Chapter.Puzzles)
                 {
-                    GUI.Label(new Rect(w - 320, yy, 290, 46), (puzzle.Solved ? "[+] " : "[ ] ") + puzzle.title, body);
+                    GUI.Label(new Rect(w - 320, yy, 290, 46), (puzzle.Solved ? "[已完成] " : "[待完成] ") + puzzle.title, body);
                     yy += 45;
                 }
-                GUI.Label(new Rect(w - 320, h - 66, 290, 38), "M / ESC to return", body);
+                GUI.Label(new Rect(w - 320, h - 66, 290, 38), "M / Esc 返回冒险", body);
             }
             if (game.Paused || game.GameOver || game.Won)
             {
                 Panel(new Rect(0, 0, w, h), new Color(.025f, .07f, .11f, .77f));
-                var heading = game.Won ? "GARDEN RESTORED" : game.GameOver ? "YOUR PARTY HAS FALLEN" : "PAUSED";
+                var heading = game.Won ? "风车谷恢复生机" : game.GameOver ? "小队全员倒下" : "已暂停";
                 var centeredTitle = new GUIStyle(title) { alignment = TextAnchor.MiddleCenter };
                 GUI.Label(new Rect(w / 2 - 300, h / 2 - 95, 600, 45), heading, centeredTitle);
-                GUI.Label(new Rect(w / 2 - 260, h / 2 - 45, 520, 50), game.Paused ? "Take a breath. Your party is waiting." :
-                    $"{Mathf.FloorToInt(game.Elapsed / 60)} min  {game.Elapsed % 60:00} sec     Supplies: {(game.Chapter != null ? game.Chapter.SupplyCount.ToString() : game.HasChest ? "recovered" : "unexplored")}", center);
-                if (GUI.Button(new Rect(w / 2 - 110, h / 2 + 20, 220, 48), game.Paused ? "RESUME" : "PLAY AGAIN  /  R", button))
+                GUI.Label(new Rect(w / 2 - 260, h / 2 - 45, 520, 50), game.Paused ? "歇一会儿，小队正在等你。" :
+                    $"{Mathf.FloorToInt(game.Elapsed / 60)} 分 {game.Elapsed % 60:00} 秒     补给： {(game.Chapter != null ? game.Chapter.SupplyCount.ToString() : game.HasChest ? "已收集" : "未探索")}", center);
+                if (GUI.Button(new Rect(w / 2 - 110, h / 2 + 20, 220, 48), game.Paused ? "继续冒险" : "重新开始 / R", button))
                 {
                     if (game.Paused) game.TogglePause(); else game.RestartGame();
                 }

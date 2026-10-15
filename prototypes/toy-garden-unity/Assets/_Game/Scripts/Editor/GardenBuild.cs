@@ -26,7 +26,7 @@ namespace ToyGarden.Editor
                 if (args[i] == "-gardenBuildPath") output = Path.GetFullPath(args[i + 1]);
             Directory.CreateDirectory(Path.GetDirectoryName(output));
             PlayerSettings.companyName = "ToyGarden";
-            PlayerSettings.productName = "Toy Garden ARPG";
+            PlayerSettings.productName = "风车谷";
             PlayerSettings.defaultScreenWidth = 1440;
             PlayerSettings.defaultScreenHeight = 900;
             PlayerSettings.fullScreenMode = FullScreenMode.Windowed;

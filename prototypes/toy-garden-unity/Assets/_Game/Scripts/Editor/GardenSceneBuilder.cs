@@ -108,10 +108,10 @@ namespace ToyGarden.Editor
                 float a = i * Mathf.PI * 2 / 12;
                 Box("Clearing border stone", new Vector3(-10 + Mathf.Cos(a) * 9.5f, 0.025f, -5 + Mathf.Sin(a) * 10.8f), new Vector3(0.8f, 0.05f, 0.55f), "Stone", false, 0.02f);
             }
-            Sign(new Vector3(-21.5f, 0, -16), "ORCHARD", "Blue");
-            Sign(new Vector3(1.1f, 0, -9.7f), "WINDMILL", "Coral");
-            Sign(new Vector3(-21, 0, 6.8f), "SECRET", "Gold");
-            Sign(new Vector3(24.3f, 3, 8.2f), "GROVE", "Lilac");
+            Sign(new Vector3(-21.5f, 0, -16),"苹果小径","Blue","ORCHARD");
+            Sign(new Vector3(1.1f, 0, -9.7f),"风车高地","Coral","WINDMILL");
+            Sign(new Vector3(-21, 0, 6.8f),"宝箱小径","Gold","SECRET");
+            Sign(new Vector3(24.3f, 3, 8.2f),"古树林","Lilac","GROVE");
         }
 
         static void Path(Vector3 from, Vector3 to, int count, float width)
@@ -318,17 +318,35 @@ namespace ToyGarden.Editor
             Sphere("Flag finial", p + Vector3.up * 3.4f, Vector3.one * 0.22f, "Gold");
         }
 
-        static void Sign(Vector3 p, string text, string color)
+        static void Sign(Vector3 p, string text, string color, string objectTitle)
         {
             Box("Signpost", p + Vector3.up * 0.75f, new Vector3(0.18f, 1.5f, 0.18f), "Wood", true);
-            Box("Wayfinding " + text, p + Vector3.up * 1.4f, new Vector3(2.1f, 0.65f, 0.16f), color, false, 0.08f);
-            GameObject label = new GameObject(text + " label");
+            float boardWidth = text.Length > 7 ? 3.2f : 2.1f;
+            Box("Wayfinding " + objectTitle, p + Vector3.up * 1.4f, new Vector3(boardWidth, 0.65f, 0.16f), color, false, 0.08f);
+            GameObject label = new GameObject(objectTitle + " label");
             label.transform.SetParent(environment);
             label.transform.position = p + new Vector3(0, 1.4f, -0.1f);
             label.transform.rotation = Quaternion.identity;
             TextMesh tm = label.AddComponent<TextMesh>();
             tm.text = text; tm.fontSize = 42; tm.characterSize = 0.072f; tm.anchor = TextAnchor.MiddleCenter;
             tm.alignment = TextAlignment.Center; tm.color = Color.white;
+            ApplyWorldTextFont(tm, boardWidth - 0.22f, 0.48f);
+        }
+
+        static void ApplyWorldTextFont(TextMesh text, float maxWidth, float maxHeight)
+        {
+            Font font = GardenLanguage.Font;
+            if (font == null) throw new InvalidOperationException("The shared Chinese world-text font is missing.");
+            text.font = font;
+            font.RequestCharactersInTexture(text.text, text.fontSize, text.fontStyle);
+            Renderer renderer = text.GetComponent<Renderer>();
+            // The dynamic font owns its atlas material; a material clone would miss atlas updates.
+            renderer.sharedMaterial = font.material;
+            Vector3 size = renderer.bounds.size;
+            float fit = 1f;
+            if (size.x > maxWidth) fit = Mathf.Min(fit, maxWidth / size.x);
+            if (size.y > maxHeight) fit = Mathf.Min(fit, maxHeight / size.y);
+            text.characterSize *= fit;
         }
 
         static void CreateActor(ActorKind kind, Vector3 position, int encounterId, Transform parent)

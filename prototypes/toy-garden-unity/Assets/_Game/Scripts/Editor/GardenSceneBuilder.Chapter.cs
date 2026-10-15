@@ -22,15 +22,23 @@ namespace ToyGarden.Editor
             new(48,40), new(48,44), new(44,44), new(44,44),
             new(48,44), new(44,44), new(44,44), new(44,40)
         };
-        static readonly string[] districtTitles = {
+        static readonly string[] districtObjectNames = {
             "Sunbell Village", "Appleway Orchard", "Bluewater Works", "Clockwork Court",
             "Windmill Heights", "Ancient Grove", "Sunstone Ruins", "Guardian Summit"
         };
+        static readonly string[] districtTitles = {
+            "铃花村", "苹果小径", "水渠工坊", "钟表庭院",
+            "风车高地", "古树林", "日光遗迹", "守卫山顶"
+        };
+        static readonly string[] puzzleObjectNames = {
+            "Village road lever", "Orchard pressure plate", "Waterworks compass wheels",
+            "Clockwork pressure plate", "Windmill bridge lever", "Ancient chime melody", "Sunstone compass"
+        };
         static readonly string[] districtSubtitles = {
-            "Wake the road with the village lever", "A crate, a plate and an orchard ambush",
-            "Turn the water wheels to match the arrows", "Find a route around the workshop blocks",
-            "Raise the wind bridges and open the return path", "Remember the three ancient chimes",
-            "Read the sunstone compass", "Defeat the guardian and reach the chapter gate"
+            "拉动村庄机关，开启前往果园的道路", "推动木箱压住机关，击退果园中的敌人",
+            "按线索调整水渠转盘的方向", "绕过障碍，将木箱推到压力板上",
+            "开启风车桥，打通返回果园的捷径", "按石碑上的顺序敲响三座风铃",
+            "解读日光石盘的方向线索", "击败山顶守卫，抵达章节出口"
         };
 
         static void BuildChapter()
@@ -109,7 +117,7 @@ namespace ToyGarden.Editor
             {
                 environment = DistrictRoot(i, "Land and edges");
                 Vector3 p = districtCenters[i]; Vector2 size = districtSizes[i];
-                Platform(districtTitles[i], p, new Vector3(size.x, p.y + 5.5f, size.y));
+                Platform(districtObjectNames[i], p, new Vector3(size.x, p.y + 5.5f, size.y));
                 Box("Exposed lower rock stratum", p - Vector3.up * (p.y + 4.3f), new Vector3(size.x - 1.2f, 1.2f, size.y - 1.2f), "Slate", false, .5f);
                 // The broad pasture shape is broken by terraces, cliff pebbles and garden edges.
                 for (int side = -1; side <= 1; side += 2)
@@ -131,7 +139,7 @@ namespace ToyGarden.Editor
 
         static Transform DistrictRoot(int index, string suffix)
         {
-            Transform group = new GameObject($"{index + 1:00} · {districtTitles[index]} · {suffix}").transform;
+            Transform group = new GameObject($"{index + 1:00} · {districtObjectNames[index]} · {suffix}").transform;
             group.SetParent(worldRoot, false); return group;
         }
 
@@ -232,7 +240,7 @@ namespace ToyGarden.Editor
             House(new(-16,0,5),"Coral",1.05f); House(new(15,0,-8),"Blue",1); House(new(16,0,9),"Lilac",.85f);
             Fountain(new(-1,0,0),2.5f);
             Arch(new(0,0,-17),8,"Blue");
-            Sign(new(-6,0,14),"ORCHARD", "Blue"); Sign(new(9,0,13),"ROAD LEVER", "Gold");
+            Sign(new(-6,0,14),"苹果小径","Blue","ORCHARD"); Sign(new(9,0,13),"通路拉杆","Gold","ROAD LEVER");
             GardenBed(new(-17,0,-11),new(6,4),"Pink"); GardenBed(new(16,0,17),new(10,3),"Gold");
             GardenBed(new(-14,0,15),new(11,3),"Cream");
             MarketStall(new(7,0,-8),"Coral"); Bench(new(-7,0,2)); Bench(new(5,0,5));
@@ -253,8 +261,8 @@ namespace ToyGarden.Editor
             for(int i=0;i<4;i++) Tree(new(-19+i*5,0,78),.9f,true);
             CropRows(new(10,0,69),4,4); GardenBed(new(9,0,78),new(9,3),"Gold");
             Barrel(new(-20,0,56)); Barrel(new(-18.8f,0,57)); Cart(new(-16,0,57));
-            Sign(new(-19,0,61),"PUSH TO THE PLATE", "Gold"); Sign(new(18,0,63),"WATERWORKS", "Blue");
-            Sign(new(4.5f,0,78),"RETURN BRIDGE", "Coral");
+            Sign(new(-19,0,61),"推箱压住机关","Gold","PUSH TO THE PLATE"); Sign(new(18,0,63),"水渠工坊","Blue","WATERWORKS");
+            Sign(new(4.5f,0,78),"返回果园","Coral","RETURN BRIDGE");
             FlowerPatch(new(-6,0,41),8); FlowerPatch(new(17,0,73),8);
         }
 
@@ -269,8 +277,8 @@ namespace ToyGarden.Editor
             Box("Aqueduct flowing water",new(63,8.12f,42),new(33,.025f,1.9f),"Water",false,.01f);
             Box("Waterfall descending ribbon",new(78,4.8f,43.4f),new(2.7f,5.4f,.12f),"Water",false,.05f);
             for(int i=0;i<3;i++) Box("Waterfall foam stream",new(77.2f+i*.8f,4.8f,43.31f),new(.13f,5.4f,.04f),"Foam",false,.015f);
-            Sign(new(56,2,76),"MATCH:  E   S   W", "Blue");
-            Sign(new(69,2,78),"CLOCKWORK COURT", "Copper");
+            Sign(new(56,2,76),"方向：东  南  西","Blue","MATCH:  E   S   W");
+            Sign(new(69,2,78),"钟表庭院","Copper","CLOCKWORK COURT");
             Tree(new(47,2,77),1.1f,false); Tree(new(82,2,79),.9f,false);
             GardenBed(new(73,2,79),new(6,3),"Cream");
             for(int i=0;i<4;i++) Barrel(new(48+i*1.5f,2,53));
@@ -285,8 +293,8 @@ namespace ToyGarden.Editor
             Path(new(64,5,104),new(60,5,116),8,4); Path(new(55,5,124),new(43,5,124),8,4);
             Clocktower(new(79,5,114));
             House(new(49,5,136),"Copper",.8f);
-            Sign(new(72,5,142),"PUSH TO THE PLATE", "Gold");
-            Sign(new(46,5,128),"WINDMILL HEIGHTS", "Coral");
+            Sign(new(72,5,142),"推箱压住机关","Gold","PUSH TO THE PLATE");
+            Sign(new(46,5,128),"风车高地","Coral","WINDMILL HEIGHTS");
             Gear(new(82,5.17f,134),2.8f,"Copper",false); Gear(new(82,5.25f,140),1.8f,"Gold",false);
             for(int i=0;i<3;i++) Barrel(new(79+i*1.4f,5,128));
             MarketStall(new(49,5,111),"Lilac");
@@ -303,8 +311,8 @@ namespace ToyGarden.Editor
             GardenBed(new(12,5,110),new(12,4),"Cream");
             for(int i=0;i<4;i++) Tree(new(-21+i*5,5,143),.8f,false);
             House(new(16,5,129),"Blue",.7f);
-            Sign(new(9,5,123),"WIND BRIDGE LEVER", "Gold"); Sign(new(-18,5,127),"ANCIENT GROVE", "Lilac");
-            Sign(new(5,5,107),"ORCHARD SHORTCUT", "Coral");
+            Sign(new(9,5,123),"风车桥拉杆","Gold","WIND BRIDGE LEVER"); Sign(new(-18,5,127),"古树林","Lilac","ANCIENT GROVE");
+            Sign(new(5,5,107),"果园捷径","Coral","ORCHARD SHORTCUT");
             Bench(new(-5,5,131)); Bench(new(6,5,133));
             for(int i=0;i<5;i++) Flag(new(-20+i*10,5,118),i%2==0?"Coral":"Blue");
         }
@@ -323,8 +331,8 @@ namespace ToyGarden.Editor
                 Mushroom(new(x,5,108+i%2*2),.75f);
             }
             Arch(new(-72,5,137),10,"Wood");
-            Sign(new(-72,5,139),"CHIME ORDER:  1 > 3 > 2", "Lilac");
-            Sign(new(-69,5,108),"SUNSTONE RUINS", "Gold");
+            Sign(new(-72,5,139),"顺序：1 → 3 → 2","Lilac","CHIME ORDER:  1 > 3 > 2");
+            Sign(new(-69,5,108),"日光遗迹","Gold","SUNSTONE RUINS");
             Pool(new(-79,5,121),3);
             GardenBed(new(-49,5,133),new(8,4),"Pink");
             FlowerPatch(new(-80,5,134),12); FlowerPatch(new(-48,5,114),10);
@@ -344,8 +352,8 @@ namespace ToyGarden.Editor
             Arch(new(-62,8,77),10,"Marble");
             Box("Broken ruin lintel",new(-81,8.5f,74),new(1.1f,1.1f,6),"Marble",true,.2f);
             Gear(new(-51,8.1f,72),4,"Gold",false);
-            Sign(new(-74,8,74),"MATCH:  S   E", "Gold");
-            Sign(new(-70,8,42),"GUARDIAN SUMMIT", "Coral");
+            Sign(new(-74,8,74),"方向：南  东","Gold","MATCH:  S   E");
+            Sign(new(-70,8,42),"守卫山顶","Coral","GUARDIAN SUMMIT");
             Tree(new(-83,8,79),.9f,false); Bush(new(-48,8,78),1.3f);
             GardenBed(new(-80,8,42),new(6,3),"Cream");
             for(int i=0;i<6;i++) RuneStone(new(-83+i*6.5f,8,80),i%3);
@@ -366,7 +374,7 @@ namespace ToyGarden.Editor
                 Tree(new(-64+side*19,8,16),1.2f,false);
             }
             Arch(new(-64,8,-15),9,"Blue");
-            Sign(new(-71,8,-10),"CHAPTER GATE", "Gold");
+            Sign(new(-71,8,-10),"章节出口","Gold","CHAPTER GATE");
             GardenBed(new(-77,8,-16),new(6,3),"Pink"); GardenBed(new(-51,8,-16),new(6,3),"Gold");
         }
 
@@ -395,18 +403,18 @@ namespace ToyGarden.Editor
         static void BuildChapterPuzzles()
         {
             environment=puzzleRoot;
-            GardenPuzzle p0=Puzzle(0,"Village road lever",PuzzleKind.Lever);
-            Lever(new(8,0,10),p0.id,"Open the orchard road");
-            GardenPuzzle p1=PushPuzzle(1,"Orchard pressure plate",new(-18,0,64),new[]{new Vector2Int(2,1),new Vector2Int(2,2)});
-            GardenPuzzle p2=Puzzle(2,"Waterworks compass wheels",PuzzleKind.Dials); p2.solution=new[]{1,2,3};
-            for(int i=0;i<3;i++) Dial(new(52+i*4,2,69),2,i,"Water wheel "+(i+1));
-            GardenPuzzle p3=PushPuzzle(3,"Clockwork pressure plate",new(67,5,131),new[]{new Vector2Int(1,2),new Vector2Int(2,2)});
-            GardenPuzzle p4=Puzzle(4,"Windmill bridge lever",PuzzleKind.Lever);
-            Lever(new(7,5,126),p4.id,"Raise wind bridge and shortcut");
-            GardenPuzzle p5=Puzzle(5,"Ancient chime melody",PuzzleKind.Sequence); p5.solution=new[]{0,2,1};
+            GardenPuzzle p0=Puzzle(0,"村庄通路拉杆",PuzzleKind.Lever);
+            Lever(new(8,0,10),p0.id,"开启前往果园的道路","Open the orchard road");
+            GardenPuzzle p1=PushPuzzle(1,"果园压力板",new(-18,0,64),new[]{new Vector2Int(2,1),new Vector2Int(2,2)});
+            GardenPuzzle p2=Puzzle(2,"水渠方向转盘",PuzzleKind.Dials); p2.solution=new[]{1,2,3};
+            for(int i=0;i<3;i++) Dial(new(52+i*4,2,69),2,i,"水渠转盘 "+(i+1),"Water wheel "+(i+1));
+            GardenPuzzle p3=PushPuzzle(3,"工坊压力板",new(67,5,131),new[]{new Vector2Int(1,2),new Vector2Int(2,2)});
+            GardenPuzzle p4=Puzzle(4,"风车桥拉杆",PuzzleKind.Lever);
+            Lever(new(7,5,126),p4.id,"开启风车桥与返回捷径","Raise wind bridge and shortcut");
+            GardenPuzzle p5=Puzzle(5,"古树风铃",PuzzleKind.Sequence); p5.solution=new[]{0,2,1};
             for(int i=0;i<3;i++) SequenceBell(new(-77+i*5,5,132),5,i);
-            GardenPuzzle p6=Puzzle(6,"Sunstone compass",PuzzleKind.Dials); p6.solution=new[]{2,1};
-            for(int i=0;i<2;i++) Dial(new(-77+i*7,8,68),6,i,"Sunstone dial "+(i+1));
+            GardenPuzzle p6=Puzzle(6,"遗迹方向转盘",PuzzleKind.Dials); p6.solution=new[]{2,1};
+            for(int i=0;i<2;i++) Dial(new(-77+i*7,8,68),6,i,"遗迹转盘 "+(i+1),"Sunstone dial "+(i+1));
             // Continuous colored routes make the connection between mechanism and gate readable.
             Conduit(new(8,0,10),new(0,0,17),"Gold"); Conduit(new(0,0,17),new(0,0,26),"Gold");
             Conduit(new(-14,0,74),new(18,0,74),"Gold"); Conduit(new(18,0,74),new(22,0,60),"Gold");
@@ -419,7 +427,7 @@ namespace ToyGarden.Editor
 
         static GardenPuzzle Puzzle(int id,string title,PuzzleKind kind)
         {
-            GameObject root=new GameObject($"Puzzle {id} · {title}"); root.transform.SetParent(puzzleRoot,false);
+            GameObject root=new GameObject($"Puzzle {id} · {puzzleObjectNames[id]}"); root.transform.SetParent(puzzleRoot,false);
             GardenPuzzle puzzle=root.AddComponent<GardenPuzzle>(); puzzle.id=id; puzzle.title=title; puzzle.kind=kind; return puzzle;
         }
 
@@ -443,7 +451,7 @@ namespace ToyGarden.Editor
             Vector3 goal=origin+new Vector3(6,.08f,6);
             Box("Goal pressure plate",goal,new Vector3(1.7f,.1f,1.7f),"Gold",false,.04f);
             Box("Plate centre rune",goal+Vector3.up*.065f,new Vector3(1.15f,.025f,1.15f),"Rune",false,.01f);
-            GardenMechanism crate=Mechanism("Pushable crate",origin+new Vector3(2,0,2),MechanismKind.Crate,id,0,"Push crate");
+            GardenMechanism crate=Mechanism("Pushable crate",origin+new Vector3(2,0,2),MechanismKind.Crate,id,0,"推动木箱");
             Box("Wooden crate body",crate.transform.position+Vector3.up*.79f,new Vector3(1.45f,1.48f,1.45f),"Wood",false,.14f,crate.transform);
             for(int sign=-1;sign<=1;sign+=2)
             {
@@ -452,16 +460,16 @@ namespace ToyGarden.Editor
             }
             BoxCollider collider=crate.gameObject.AddComponent<BoxCollider>(); collider.center=Vector3.up*.79f; collider.size=new(1.45f,1.48f,1.45f);
             Carve(crate.gameObject,collider.size,collider.center); crate.visual=crate.transform.GetChild(0);
-            GardenMechanism reset=Mechanism("Reset crate lever",origin+new Vector3(-2.5f,0,-1),MechanismKind.ResetCrate,id,0,"Reset crate to start");
+            GardenMechanism reset=Mechanism("Reset crate lever",origin+new Vector3(-2.5f,0,-1),MechanismKind.ResetCrate,id,0,"将木箱重置到起点");
             LeverArt(reset,"Coral");
-            Sign(origin+new Vector3(-2.5f,0,-3),"RESET CRATE", "Coral");
-            Label(origin+new Vector3(4,.15f,-2.5f),"STAND BEHIND + E",.11f,"Eye");
+            Sign(origin+new Vector3(-2.5f,0,-3),"重置木箱","Coral","RESET CRATE");
+            Label(origin+new Vector3(4,.15f,-2.5f),"站在箱后按 E 推动",.11f,"Eye","STAND BEHIND + E");
             return p;
         }
 
-        static void Lever(Vector3 position,int puzzleId,string label)
+        static void Lever(Vector3 position,int puzzleId,string label,string objectTitle)
         {
-            GardenMechanism mechanism=Mechanism(label,position,MechanismKind.Lever,puzzleId,0,label);
+            GardenMechanism mechanism=Mechanism(objectTitle,position,MechanismKind.Lever,puzzleId,0,label);
             LeverArt(mechanism,"Gold");
         }
 
@@ -475,9 +483,9 @@ namespace ToyGarden.Editor
             mechanism.visual=handle;
         }
 
-        static void Dial(Vector3 position,int puzzleId,int index,string label)
+        static void Dial(Vector3 position,int puzzleId,int index,string label,string objectTitle)
         {
-            GardenMechanism mechanism=Mechanism(label,position,MechanismKind.Dial,puzzleId,index,label);
+            GardenMechanism mechanism=Mechanism(objectTitle,position,MechanismKind.Dial,puzzleId,index,label);
             Cylinder("Compass dial plinth",position+Vector3.up*.35f,1.3f,.7f,"Stone",false).transform.SetParent(mechanism.transform,true);
             Cylinder("Compass dial rim",position+Vector3.up*.73f,1.18f,.12f,"Gold",false).transform.SetParent(mechanism.transform,true);
             Transform arrow=new GameObject("Rotating compass arrow · N E S W").transform; arrow.SetParent(mechanism.transform,false); arrow.localPosition=Vector3.up*.84f;
@@ -489,15 +497,15 @@ namespace ToyGarden.Editor
             }
             mechanism.visual=arrow;
             Label(position+new Vector3(0,1.15f,-1.6f),(index+1).ToString(),.16f,"Eye");
-            Label(position+new Vector3(0,.14f,1.7f),"N",.13f,"Eye");
-            Label(position+new Vector3(1.65f,.14f,0),"E",.13f,"Eye");
-            Label(position+new Vector3(0,.14f,-1.7f),"S",.13f,"Eye");
-            Label(position+new Vector3(-1.65f,.14f,0),"W",.13f,"Eye");
+            Label(position+new Vector3(0,.14f,1.7f),"北",.13f,"Eye","N");
+            Label(position+new Vector3(1.65f,.14f,0),"东",.13f,"Eye","E");
+            Label(position+new Vector3(0,.14f,-1.7f),"南",.13f,"Eye","S");
+            Label(position+new Vector3(-1.65f,.14f,0),"西",.13f,"Eye","W");
         }
 
         static void SequenceBell(Vector3 position,int puzzleId,int index)
         {
-            GardenMechanism mechanism=Mechanism("Ancient chime "+(index+1),position,MechanismKind.SequenceSwitch,puzzleId,index,"Ring chime "+(index+1));
+            GardenMechanism mechanism=Mechanism("Ancient chime "+(index+1),position,MechanismKind.SequenceSwitch,puzzleId,index,"敲响风铃 "+(index+1));
             string[] colors={"Blue","Gold","Pink"};
             Cylinder("Chime plinth",position+Vector3.up*.4f,1,.8f,"Stone",false).transform.SetParent(mechanism.transform,true);
             Transform bell=new GameObject("Chime visual").transform; bell.SetParent(mechanism.transform,false);
@@ -564,7 +572,7 @@ namespace ToyGarden.Editor
             Vector3[] positions={new(19,0,76),new(80,2,76),new(48,5,140),new(-79,5,113),new(-48,8,76)};
             for(int i=0;i<positions.Length;i++)
             {
-                GardenMechanism chest=Mechanism("Chapter treasure "+(i+1),positions[i],MechanismKind.Chest,-1,i,"Open garden treasure");
+                GardenMechanism chest=Mechanism("Chapter treasure "+(i+1),positions[i],MechanismKind.Chest,-1,i,"开启花园宝箱");
                 environment=chest.transform;
                 Transform lid=BuildChest(positions[i]);
                 chest.visual=lid;
@@ -573,10 +581,10 @@ namespace ToyGarden.Editor
                 Path(positions[i]+new Vector3(0,0,-5),positions[i]+new Vector3(0,0,-1.5f),4,1.8f);
                 Flag(positions[i]+Vector3.right*2,"Gold");
             }
-            GardenMechanism exit=Mechanism("Chapter exit",game.exitPosition,MechanismKind.Exit,-1,0,"Complete Windmill Isles");
+            GardenMechanism exit=Mechanism("Chapter exit",game.exitPosition,MechanismKind.Exit,-1,0,"完成风车谷章节");
             Cylinder("Chapter completion pad",game.exitPosition+Vector3.up*.04f,2.7f,.075f,"Gold",false);
             Cylinder("Chapter completion pad centre",game.exitPosition+Vector3.up*.085f,2.2f,.035f,"Blue",false);
-            Label(game.exitPosition+new Vector3(0,2.2f,-1),"CHAPTER EXIT",.15f,"Cream");
+            Label(game.exitPosition+new Vector3(0,2.2f,-1),"章节出口",.15f,"Cream","CHAPTER EXIT");
             environment=worldRoot;
         }
 
@@ -816,11 +824,12 @@ namespace ToyGarden.Editor
             for(int i=0;i<3;i++) Sphere("Conduit light bead",Vector3.Lerp(a,b,(i+1)/4f)+Vector3.up*.15f,Vector3.one*.24f,color);
         }
 
-        static void Label(Vector3 position,string title,float scale,string color)
+        static void Label(Vector3 position,string title,float scale,string color,string objectTitle=null)
         {
-            GameObject go=new GameObject(title+" label"); go.transform.SetParent(environment,false); go.transform.position=position;
+            GameObject go=new GameObject((objectTitle ?? title)+" label"); go.transform.SetParent(environment,false); go.transform.position=position;
             TextMesh text=go.AddComponent<TextMesh>(); text.text=title; text.fontSize=42; text.characterSize=scale; text.anchor=TextAnchor.MiddleCenter; text.alignment=TextAlignment.Center;
             text.color=materials[color].color;
+            ApplyWorldTextFont(text, title.Length == 1 ? .9f : 5.5f, title.Length == 1 ? .9f : .65f);
         }
     }
 }
