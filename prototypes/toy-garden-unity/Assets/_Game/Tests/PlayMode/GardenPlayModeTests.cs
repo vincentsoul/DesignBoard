@@ -129,6 +129,95 @@ namespace ToyGarden.Tests
         }
 
         [UnityTest]
+        public IEnumerator WindmillShortcutUpperLandingAllowsEveryHeroToReturn()
+        {
+            FreezeForLogic();
+            Assert.IsFalse(chapter.IsPuzzleSolved(4));
+            Assert.IsFalse(chapter.IsGateOpen(7), "This regression must reproduce the approach before the shortcut is unlocked.");
+            var landing = new Vector3(0f, 5.05f, 108f);
+            var turnaround = new Vector3(0f, 3.8f, 98f);
+            for (int index = 0; index < game.Heroes.Count; index++)
+            {
+                var hero = game.Heroes[index];
+                if (hero != game.ActiveHero) Assert.IsTrue(game.SwitchTo(index));
+                hero.enabled = true;
+                hero.Teleport(landing); // Set up the approach only; the return leg must begin where walking ended.
+                yield return new WaitForSeconds(.15f);
+                yield return WalkCharacterTo(hero, turnaround, $"{hero.kind}: descend from Windmill Heights");
+                Assert.Less(hero.transform.position.y, 4.6f, "The hero must descend onto the sloped shortcut.");
+                yield return WalkCharacterTo(hero, landing, $"{hero.kind}: return over the shortcut's upper landing");
+                Assert.AreEqual(landing.y, hero.transform.position.y, .2f,
+                    $"{hero.kind} must regain the Windmill Heights platform, not stop below its rim.");
+                Assert.IsFalse(chapter.IsGateOpen(7), "Walking back must not depend on opening the distant shortcut gate.");
+                hero.enabled = false;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator EverySlopedBridgeSupportsRoundTripCharacterWalking()
+        {
+            FreezeForLogic();
+            RestoreChapter(); // Keep the real puzzle and encounter requirements when opening the route.
+            Assert.IsTrue(chapter.Gates.All(gate => gate.IsOpen));
+            yield return new WaitForSeconds(.3f);
+            var hero = game.ActiveHero;
+            hero.enabled = true;
+            // Both endpoints lie on the adjoining platform, beyond the bridge/platform seams.
+            // The ruins endpoint stops before the decorative rune stones at z = 80.
+            var routes = new[]
+            {
+                (name: "Orchard canal", from: new Vector3(20f, .05f, 60f), to: new Vector3(46f, 2.05f, 60f)),
+                (name: "Waterworks aqueduct", from: new Vector3(64f, 2.05f, 78f), to: new Vector3(64f, 5.05f, 106f)),
+                (name: "Ancient ascent", from: new Vector3(-64f, 5.05f, 106f), to: new Vector3(-64f, 8.05f, 81f)),
+                (name: "Orchard return shortcut", from: new Vector3(0f, 5.05f, 106f), to: new Vector3(0f, .05f, 78f))
+            };
+            foreach (var route in routes)
+            {
+                hero.Teleport(route.from);
+                yield return new WaitForSeconds(.15f);
+                yield return WalkCharacterTo(hero, route.to, route.name + ": outbound");
+                Assert.AreEqual(route.to.y, hero.transform.position.y, .2f, route.name + ": far platform height");
+                yield return WalkCharacterTo(hero, route.from, route.name + ": return");
+                Assert.AreEqual(route.from.y, hero.transform.position.y, .2f, route.name + ": starting platform height");
+            }
+            // Cover the shortcut's upper seam away from its centre line while staying inside the railings.
+            foreach (float side in new[] { -2.4f, 2.4f })
+            {
+                var landing = new Vector3(side, 5.05f, 106f);
+                var turnaround = new Vector3(side, 3.8f, 98f);
+                hero.Teleport(landing);
+                yield return new WaitForSeconds(.15f);
+                yield return WalkCharacterTo(hero, turnaround, $"Shortcut side {side}: descend");
+                yield return WalkCharacterTo(hero, landing, $"Shortcut side {side}: regain landing");
+                Assert.AreEqual(landing.y, hero.transform.position.y, .2f);
+            }
+        }
+
+        IEnumerator WalkCharacterTo(GardenActor hero, Vector3 destination, string route)
+        {
+            Assert.IsTrue(hero.enabled && hero.IsPlayerControlled && game.IsPlaying,
+                route + ": the real player movement loop must be active.");
+            float startHeight = hero.transform.position.y;
+            float deadline = Time.time + Mathf.Max(3f,
+                GardenGame.FlatDistance(hero.transform.position, destination) / 3f + 2f);
+            var previous = new Dictionary<GardenActor, Vector3> { [hero] = hero.transform.position };
+            float previousTime = Time.time;
+            while (GardenGame.FlatDistance(hero.transform.position, destination) > .25f && Time.time < deadline)
+            {
+                Vector3 direction = destination - hero.transform.position;
+                direction.y = 0f;
+                hero.SetMoveInput(direction.normalized);
+                yield return null;
+                AssertContinuousPartyMovement(previous, ref previousTime);
+                Assert.Greater(hero.transform.position.y, Mathf.Min(startHeight, destination.y) - 1.5f,
+                    route + ": the CharacterController fell below the traversable surface.");
+            }
+            hero.SetMoveInput(Vector3.zero);
+            Assert.Less(GardenGame.FlatDistance(hero.transform.position, destination), .35f,
+                $"{route}: CharacterController stopped at {hero.transform.position} before reaching {destination}.");
+        }
+
+        [UnityTest]
         public IEnumerator SwingHitsOnceAndDodgeBlocksOnlyDuringItsWindow()
         {
             game.enabled = false;

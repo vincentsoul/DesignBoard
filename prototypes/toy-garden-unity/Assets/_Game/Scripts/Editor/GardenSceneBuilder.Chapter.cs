@@ -184,12 +184,45 @@ namespace ToyGarden.Editor
         {
             Vector3 flat = to - from; flat.y = 0; Vector3 forward = flat.normalized;
             Vector3 right = Vector3.Cross(Vector3.up, forward);
-            var vertices = new[] { from-right*width*.5f, from+right*width*.5f, to-right*width*.5f, to+right*width*.5f,
-                from-right*width*.5f-Vector3.up*.8f, from+right*width*.5f-Vector3.up*.8f,
-                to-right*width*.5f-Vector3.up*.8f, to+right*width*.5f-Vector3.up*.8f };
-            int[] indices = {0,2,1,1,2,3, 4,5,6,5,7,6, 0,1,4,1,5,4, 2,6,3,3,6,7, 0,4,2,2,4,6, 1,3,5,3,7,5};
-            Vector3[] unique = new Vector3[indices.Length]; int[] triangles = new int[indices.Length];
-            for (int i=0;i<indices.Length;i++) { unique[i]=vertices[indices[i]]; triangles[i]=i; }
+            Vector3[] profile = { from, to };
+            if (!Mathf.Approximately(from.y, to.y))
+            {
+                // The endpoints sit 2m inside each island. Keep that overlap level with
+                // its platform and change elevation only across the open span. A ramp
+                // starting at the endpoint instead leaves a vertical lip at the high shore.
+                float startLanding = BridgeLandingDistance(from, forward);
+                float endLanding = BridgeLandingDistance(to, -forward);
+                if (startLanding + endLanding >= flat.magnitude)
+                    throw new InvalidOperationException("The bridge landings leave no open span: " + title);
+                profile = new[] { from, from + forward * startLanding, to - forward * endLanding, to };
+            }
+
+            // One continuous shell shares the profile's seam positions. There are no
+            // internal vertical end caps for a CharacterController to hit at the joins.
+            var vertices = new List<Vector3>();
+            for (int i = 0; i < profile.Length; i++)
+            {
+                Vector3 p = profile[i];
+                vertices.Add(p - right * width * .5f); vertices.Add(p + right * width * .5f);
+                vertices.Add(p - right * width * .5f - Vector3.up * .8f);
+                vertices.Add(p + right * width * .5f - Vector3.up * .8f);
+            }
+            var indices = new List<int>();
+            for (int i = 0; i < profile.Length - 1; i++)
+            {
+                int a = i * 4, b = a + 4;
+                indices.AddRange(new[] {
+                    a, b, a+1, a+1, b, b+1,                   // Top.
+                    a+2, a+3, b+2, a+3, b+3, b+2,           // Bottom.
+                    a, a+2, b, b, a+2, b+2,                 // Left side.
+                    a+1, b+1, a+3, b+1, b+3, a+3            // Right side.
+                });
+            }
+            indices.AddRange(new[] { 0, 1, 2, 1, 3, 2 });
+            int end = (profile.Length - 1) * 4;
+            indices.AddRange(new[] { end, end+2, end+1, end+1, end+2, end+3 });
+            Vector3[] unique = new Vector3[indices.Count]; int[] triangles = new int[indices.Count];
+            for (int i = 0; i < indices.Count; i++) { unique[i] = vertices[indices[i]]; triangles[i] = i; }
             string path = AssetRoot + "/Meshes/ChapterBridge_" + title.Replace(' ', '_') + ".asset";
             Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
             if (mesh == null) { mesh = new Mesh(); AssetDatabase.CreateAsset(mesh, path); }
@@ -197,27 +230,60 @@ namespace ToyGarden.Editor
             EditorUtility.SetDirty(mesh);
             GameObject bridge = MeshObject(title + " · walkable incline", mesh, material, environment);
             bridge.AddComponent<MeshCollider>().sharedMesh = mesh;
-            int segments = Mathf.CeilToInt(flat.magnitude / 2.1f);
-            float pitch = Mathf.Atan2(to.y-from.y,flat.magnitude)*Mathf.Rad2Deg;
-            Quaternion slopeRotation = Quaternion.LookRotation(forward) * Quaternion.Euler(-pitch,0,0);
-            for (int i=0;i<=segments;i++)
+
+            int pavingIndex = 0;
+            for (int section = 0; section < profile.Length - 1; section++)
             {
-                Vector3 p=Vector3.Lerp(from,to,(float)i/segments);
-                GameObject slab=Box(title+" · warm paving",p+Vector3.up*.024f,new Vector3(width-.65f,.04f,.95f),i%3==0?"StoneLight":material,false,.015f);
-                slab.transform.rotation=slopeRotation;
-                if(i%2==0)
+                Vector3 start = profile[section], finish = profile[section + 1];
+                Vector3 sectionFlat = finish - start; sectionFlat.y = 0;
+                float run = sectionFlat.magnitude;
+                float pitch = Mathf.Atan2(finish.y - start.y, run) * Mathf.Rad2Deg;
+                Quaternion slopeRotation = Quaternion.LookRotation(forward) * Quaternion.Euler(-pitch, 0, 0);
+                int pavingCount = Mathf.Max(1, Mathf.CeilToInt(run / 2.1f));
+                for (int i = 0; i < pavingCount; i++)
                 {
-                    FencePost(p+right*(width*.5f-.1f)); FencePost(p-right*(width*.5f-.1f));
-                    float bottom=-5.7f, h=p.y-bottom;
-                    Cylinder("Bridge support pier",p-Vector3.up*h*.5f, .7f,h,"Stone",false);
-                    Box("Pier capital",p-Vector3.up*.85f,new Vector3(width-1,.6f,1.8f),"StoneLight",false,.2f);
+                    // Keep each slab within one section so it cannot float over a slope break.
+                    Vector3 p = Vector3.Lerp(start, finish, (i + .5f) / pavingCount);
+                    float slabLength = Mathf.Min(.95f, run / pavingCount * .85f);
+                    GameObject slab = Box(title + " · warm paving", p + Vector3.up * .024f,
+                        new Vector3(width - .65f, .04f, slabLength), pavingIndex++ % 3 == 0 ? "StoneLight" : material, false, .015f);
+                    slab.transform.rotation = slopeRotation;
+                }
+                int postSpans = Mathf.Max(1, Mathf.CeilToInt(run / 4.2f));
+                for (int i = section == 0 ? 0 : 1; i <= postSpans; i++)
+                {
+                    Vector3 p = Vector3.Lerp(start, finish, (float)i / postSpans);
+                    FencePost(p + right * (width * .5f - .1f)); FencePost(p - right * (width * .5f - .1f));
+                    float bottom = -5.7f, h = p.y - bottom;
+                    Cylinder("Bridge support pier", p - Vector3.up * h * .5f, .7f, h, "Stone", false);
+                    Box("Pier capital", p - Vector3.up * .85f, new Vector3(width - 1, .6f, 1.8f), "StoneLight", false, .2f);
+                }
+                foreach (int side in new[] { -1, 1 })
+                {
+                    Vector3 offset = right * side * (width * .5f - .1f);
+                    Rail(start + offset + Vector3.up * .82f, finish + offset + Vector3.up * .82f);
+                    Rail(start + offset + Vector3.up * .38f, finish + offset + Vector3.up * .38f);
                 }
             }
-            foreach(int side in new[]{-1,1})
+        }
+
+        static float BridgeLandingDistance(Vector3 endpoint, Vector3 towardBridge)
+        {
+            // Use the physical platform bounds, not the fence's 0.65m inset or a
+            // navigation sample, so a later island-size change cannot reintroduce a lip.
+            for (int i = 0; i < districtCenters.Length; i++)
             {
-                Rail(from+right*side*(width*.5f-.1f)+Vector3.up*.82f,to+right*side*(width*.5f-.1f)+Vector3.up*.82f);
-                Rail(from+right*side*(width*.5f-.1f)+Vector3.up*.38f,to+right*side*(width*.5f-.1f)+Vector3.up*.38f);
+                Vector3 center = districtCenters[i]; Vector2 half = districtSizes[i] * .5f;
+                Vector3 local = endpoint - center;
+                if (Mathf.Abs(local.y) > .01f || Mathf.Abs(local.x) > half.x || Mathf.Abs(local.z) > half.y) continue;
+                float distance = float.PositiveInfinity;
+                if (towardBridge.x > .001f) distance = Mathf.Min(distance, (half.x - local.x) / towardBridge.x);
+                else if (towardBridge.x < -.001f) distance = Mathf.Min(distance, (-half.x - local.x) / towardBridge.x);
+                if (towardBridge.z > .001f) distance = Mathf.Min(distance, (half.y - local.z) / towardBridge.z);
+                else if (towardBridge.z < -.001f) distance = Mathf.Min(distance, (-half.y - local.z) / towardBridge.z);
+                if (distance > .01f && !float.IsInfinity(distance)) return distance;
             }
+            throw new InvalidOperationException("The bridge endpoint must lie inside its level platform: " + endpoint);
         }
 
         static void BuildDistrictArt()
@@ -526,13 +592,13 @@ namespace ToyGarden.Editor
         {
             environment=puzzleRoot;
             Gate(0,0,0,new(0,0,29),Vector3.forward,new(0,0,26),new(0,0,32),"Village Road");
-            Gate(1,1,1,new(33,1,60),Vector3.right,new(30,.73f,60),new(36,1.27f,60),"Orchard Canal");
-            Gate(2,2,2,new(64,3.5f,92),Vector3.forward,new(64,3.125f,89),new(64,3.875f,95),"Waterworks Ascent");
+            Gate(1,1,1,new(33,1,60),Vector3.right,new(30,2f/3,60),new(36,4f/3,60),"Orchard Canal");
+            Gate(2,2,2,new(64,3.5f,92),Vector3.forward,new(64,3.05f,89),new(64,3.95f,95),"Waterworks Ascent");
             Gate(3,3,3,new(33,5,124),Vector3.left,new(36,5,124),new(30,5,124),"Clockwork Walk");
             Gate(4,4,0,new(-33,5,124),Vector3.left,new(-30,5,124),new(-36,5,124),"Wind Bridge");
-            Gate(5,5,4,new(-64,6.5f,92),Vector3.back,new(-64,6.125f,95),new(-64,6.875f,89),"Ancient Ascent");
+            Gate(5,5,4,new(-64,6.5f,92),Vector3.back,new(-64,6.05f,95),new(-64,6.95f,89),"Ancient Ascent");
             Gate(6,6,5,new(-64,8,29),Vector3.back,new(-64,8,32),new(-64,8,26),"Guardian Causeway");
-            Gate(7,4,0,new(0,2.5f,92),Vector3.back,new(0,3.125f,95),new(0,1.875f,89),"Orchard Return");
+            Gate(7,4,0,new(0,2.5f,92),Vector3.back,new(0,3.25f,95),new(0,1.75f,89),"Orchard Return");
             environment=worldRoot;
         }
 
