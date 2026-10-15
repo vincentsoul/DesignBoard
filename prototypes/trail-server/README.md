@@ -108,6 +108,9 @@ python3 scripts/inspect-il2cpp-metadata.py \
 node --test prototypes/trail-server/test/*.test.mjs
 ```
 
-22 项测试包含 4 项消息体加密测试和 6 项原协议包头测试（字节序、拆包、粘包、长度限制和截断），其余覆盖 HTTP 完整流程、未授权访问、非法 JSON/请求体、货币修改拒绝、版本冲突、幂等重试、制作与交易回滚、并发购买、卖家取消、小镇权限/容量、上海周边界、会话过期、事件隔离以及 SQLite 重启。
+28 项测试包含 6 项会话/TCP 测试、4 项消息体加密测试和 6 项原协议包头测试（字节序、拆包、粘包、长度限制和截断），其余覆盖 HTTP 完整流程、未授权访问、非法 JSON/请求体、货币修改拒绝、版本冲突、幂等重试、制作与交易回滚、并发购买、卖家取消、小镇权限/容量、上海周边界、会话过期、事件隔离以及 SQLite 重启。
 
 实现为单个本地进程，业务变更用 `BEGIN IMMEDIATE` 事务完成，所有 SQL 参数使用绑定。没有调用原游戏服务器或 SDK，没有修改原 APK，也没有将原 APK 的配置、代码数据或会话写入仓库。接口协议为此原型自定义，不能直接声称兼容原 APK。
+
+
+原协议传输实验可独立运行 `node prototypes/trail-server/legacy/wire-demo.mjs`。它使用临时密钥和合成客户端验证 RSA 握手与 RC4 背包帧收发，运行完即关闭；不执行 SDK 登录或原 APK。当前适配范围和字段证据见 [原客户端适配记录](../../docs/trail-client-minimal-flow.md)。

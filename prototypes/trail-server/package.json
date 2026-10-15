@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test test/*.test.mjs",
-    "demo": "node demo.mjs"
+    "demo": "node demo.mjs",
+    "wire:demo": "node legacy/wire-demo.mjs"
   }
 }
