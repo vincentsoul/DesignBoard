@@ -69,9 +69,9 @@ test('RSA payload overflow cannot leave an established session', () => {
   assert.equal(session.state, 'closed');
 });
 
-test('real loopback TCP completes synthetic RSA handshake and encrypted inventory exchange', { timeout: 10000 }, async () => {
+test('real loopback TCP completes handshake, fixture role decoding, and inventory exchange', { timeout: 10000 }, async () => {
   const report = await runWireDemo();
   assert.equal(report.originalClientFlowVerified, false);
   assert.equal(report.sdkLogin, 'not_implemented');
-  assert.deepEqual(report.steps, ['rsa_session_response_sent', 'rsa_session_response_decrypted', 'encrypted_inventory_request_received', 'encrypted_inventory_response_decrypted']);
+  assert.deepEqual(report.steps, ['rsa_session_response_sent', 'rsa_session_response_decrypted', 'encrypted_fixture_login_received', 'encrypted_fixture_role_decoded', 'encrypted_inventory_request_received', 'encrypted_inventory_response_decrypted']);
 });
