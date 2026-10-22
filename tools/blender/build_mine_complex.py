@@ -264,6 +264,9 @@ for sc in [s,expl,vertical]+[sc for _,sc in plans]:
  sc['scope']='Static three-storey whitebox: portal topology validated, gameplay not implemented'
 expl.render.resolution_x=2800;expl.render.resolution_y=1100
 vertical.render.resolution_x=1800;vertical.render.resolution_y=1800
+# Add linked, non-colliding model annotations and exploded connection leaders.
+import runpy
+runpy.run_path(str(ROOT/'tools/blender/annotate_mine_connections.py'))['annotate_connections']()
 # Default to readable exploded view, change scene to 01_Assembled to inspect actual stacking.
 bpy.context.window.scene=vertical
 for screen in bpy.data.screens:
