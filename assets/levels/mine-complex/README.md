@@ -61,3 +61,7 @@ V2新增环路会改变原单层版本的最短路线；这是扩建方案，不
 ```
 
 输入是保留的V1单层白模；重建将覆盖本目录内V2模型、预览与布局清单，手工编辑前请另存版本。
+
+## 配套平面结构图
+
+[图册入口](../../../docs/level-design/mine-complex-plans/index.html)包含三层中文标注平面图与楼层关联图；[房间明细表](../../../docs/level-design/mine-complex-plans/room-schedule.md)列出房间编号、功能、布局尺寸、面积和坐标。图面由 `tools/blender/draw_mine_complex_plans.py` 从布局清单及白模生成脚本中的几何范围生成。当前三层地面单元数已与Blender中原始地面网格核对一致。图中的面积、尺寸不是装修后的净使用面积。
