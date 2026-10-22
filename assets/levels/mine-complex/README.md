@@ -80,3 +80,9 @@ V2新增环路会改变原单层版本的最短路线；这是扩建方案，不
 `CNX_Model_L2/L3/L4` 集合属于相应建筑层；`CNX_Vertical_Connections` 与 `CNX_Assembled_Connections` 是仅用于各自展示场景的关联线。隐藏这些集合即可查看纯白模。中文标注转换为字形网格，不依赖打开模型的机器安装中文字体；编辑文字可修改脚本后重建标记。相机朝向的说明文字是专用轴测展示标签，不应导出为关卡建筑。
 
 预览：`connections-marked.png`。完整重建脚本已自动调用 `tools/blender/annotate_mine_connections.py`，不会在重建时丢失标记；也可在当前Blender文件内单独调用 `annotate_connections()` 更新，重复调用不会叠加旧标记。
+
+## 中文房间名
+
+白模内的41处房间／区域名称现使用中文，与平面结构图用词一致；楼层标题、方位、楼梯条件和目标物名称也已中文化，共更新57处标注。保留L2/L3/L4与W/E等定位编号。文字转为字形网格，因此无需额外安装中文字体即可查看。原始对象来源保存于 `room_label_source` 属性，中文内容保存于 `label_text` 属性。
+
+完整重建已接入 `tools/blender/localize_mine_rooms.py`，不会恢复为英文房名；该脚本从平面图生成器的中文名称表读取译名，可重复执行。

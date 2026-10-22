@@ -267,6 +267,7 @@ vertical.render.resolution_x=1800;vertical.render.resolution_y=1800
 # Add linked, non-colliding model annotations and exploded connection leaders.
 import runpy
 runpy.run_path(str(ROOT/'tools/blender/annotate_mine_connections.py'))['annotate_connections']()
+runpy.run_path(str(ROOT/'tools/blender/localize_mine_rooms.py'))['localize_rooms']({'levels':{lv:{'rooms':spec} for lv,spec in room_specs.items()}})
 # Default to readable exploded view, change scene to 01_Assembled to inspect actual stacking.
 bpy.context.window.scene=vertical
 for screen in bpy.data.screens:
