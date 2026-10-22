@@ -1,0 +1,1826 @@
+{
+  "levels": {
+    "L2": {
+      "z": 4,
+      "rooms": [
+        [
+          "Records",
+          [
+            2,
+            2,
+            12,
+            12
+          ]
+        ],
+        [
+          "Dormitory",
+          [
+            14,
+            2,
+            12,
+            12
+          ]
+        ],
+        [
+          "Infirmary",
+          [
+            26,
+            2,
+            12,
+            12
+          ]
+        ],
+        [
+          "Chief_Office",
+          [
+            38,
+            2,
+            12,
+            12
+          ]
+        ],
+        [
+          "Survey_Lab",
+          [
+            50,
+            2,
+            16,
+            12
+          ]
+        ],
+        [
+          "Security",
+          [
+            66,
+            2,
+            16,
+            12
+          ]
+        ],
+        [
+          "West_Storage",
+          [
+            2,
+            18,
+            8,
+            12
+          ]
+        ],
+        [
+          "West_Safe_Room",
+          [
+            2,
+            30,
+            8,
+            12
+          ]
+        ],
+        [
+          "East_Archives",
+          [
+            70,
+            18,
+            12,
+            12
+          ]
+        ],
+        [
+          "East_Exhibit",
+          [
+            70,
+            30,
+            12,
+            12
+          ]
+        ],
+        [
+          "Meeting",
+          [
+            22,
+            34,
+            12,
+            8
+          ]
+        ],
+        [
+          "Dispatch",
+          [
+            34,
+            34,
+            12,
+            8
+          ]
+        ],
+        [
+          "Observation_Control",
+          [
+            46,
+            34,
+            12,
+            8
+          ]
+        ],
+        [
+          "West_Inner_Office",
+          [
+            14,
+            18,
+            12,
+            6
+          ]
+        ],
+        [
+          "Radio",
+          [
+            34,
+            18,
+            16,
+            4
+          ]
+        ],
+        [
+          "Key_Vault",
+          [
+            50,
+            18,
+            8,
+            8
+          ]
+        ],
+        [
+          "W_Stair",
+          [
+            14,
+            28,
+            8,
+            10
+          ]
+        ],
+        [
+          "E_Stair",
+          [
+            58,
+            22,
+            8,
+            12
+          ]
+        ]
+      ]
+    },
+    "L3": {
+      "z": 0,
+      "rooms": [
+        [
+          "West_Archive",
+          [
+            0,
+            16,
+            8,
+            12
+          ]
+        ],
+        [
+          "West_Maintenance",
+          [
+            0,
+            28,
+            8,
+            10
+          ]
+        ],
+        [
+          "East_Vault",
+          [
+            56,
+            2,
+            10,
+            12
+          ]
+        ],
+        [
+          "Fuse_Store",
+          [
+            56,
+            14,
+            10,
+            4
+          ]
+        ],
+        [
+          "South_Store",
+          [
+            24,
+            42,
+            10,
+            8
+          ]
+        ],
+        [
+          "South_Safe_Room",
+          [
+            50,
+            42,
+            14,
+            8
+          ]
+        ],
+        [
+          "W_Stair",
+          [
+            14,
+            28,
+            8,
+            10
+          ]
+        ],
+        [
+          "E_Stair",
+          [
+            58,
+            22,
+            8,
+            12
+          ]
+        ]
+      ]
+    },
+    "L4": {
+      "z": -4,
+      "rooms": [
+        [
+          "Water_Intake",
+          [
+            2,
+            2,
+            24,
+            12
+          ]
+        ],
+        [
+          "Pump_Control",
+          [
+            26,
+            2,
+            12,
+            12
+          ]
+        ],
+        [
+          "Generator",
+          [
+            38,
+            2,
+            12,
+            12
+          ]
+        ],
+        [
+          "Workshop",
+          [
+            50,
+            2,
+            32,
+            12
+          ]
+        ],
+        [
+          "West_Cistern",
+          [
+            2,
+            18,
+            8,
+            24
+          ]
+        ],
+        [
+          "Switchgear",
+          [
+            70,
+            18,
+            12,
+            12
+          ]
+        ],
+        [
+          "Service_Exit",
+          [
+            70,
+            30,
+            12,
+            12
+          ]
+        ],
+        [
+          "Boiler",
+          [
+            22,
+            34,
+            24,
+            8
+          ]
+        ],
+        [
+          "Valve_Room",
+          [
+            46,
+            34,
+            12,
+            8
+          ]
+        ],
+        [
+          "Tool_Room",
+          [
+            14,
+            18,
+            12,
+            6
+          ]
+        ],
+        [
+          "Power_Console",
+          [
+            34,
+            18,
+            16,
+            4
+          ]
+        ],
+        [
+          "Emergency_Store",
+          [
+            50,
+            18,
+            8,
+            8
+          ]
+        ],
+        [
+          "Atrium_Hall",
+          [
+            26,
+            22,
+            24,
+            12
+          ]
+        ],
+        [
+          "W_Stair",
+          [
+            14,
+            28,
+            8,
+            10
+          ]
+        ],
+        [
+          "E_Stair",
+          [
+            58,
+            22,
+            8,
+            12
+          ]
+        ]
+      ]
+    }
+  },
+  "portals": [
+    {
+      "id": "L2_D000",
+      "level": "L2",
+      "a": "Records",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 14,
+      "span": [
+        7.0,
+        9.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D001",
+      "level": "L2",
+      "a": "Records",
+      "b": "Dormitory",
+      "axis": "X",
+      "fixed": 14,
+      "span": [
+        7.0,
+        9.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D002",
+      "level": "L2",
+      "a": "Dormitory",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 14,
+      "span": [
+        19.0,
+        21.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D003",
+      "level": "L2",
+      "a": "Dormitory",
+      "b": "Infirmary",
+      "axis": "X",
+      "fixed": 26,
+      "span": [
+        7.0,
+        9.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D004",
+      "level": "L2",
+      "a": "Infirmary",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 14,
+      "span": [
+        31.0,
+        33.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D005",
+      "level": "L2",
+      "a": "Infirmary",
+      "b": "Chief_Office",
+      "axis": "X",
+      "fixed": 38,
+      "span": [
+        7.0,
+        9.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D006",
+      "level": "L2",
+      "a": "Chief_Office",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 14,
+      "span": [
+        43.0,
+        45.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D007",
+      "level": "L2",
+      "a": "Chief_Office",
+      "b": "Survey_Lab",
+      "axis": "X",
+      "fixed": 50,
+      "span": [
+        7.0,
+        9.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D008",
+      "level": "L2",
+      "a": "Survey_Lab",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 14,
+      "span": [
+        57.0,
+        59.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D009",
+      "level": "L2",
+      "a": "Survey_Lab",
+      "b": "Security",
+      "axis": "X",
+      "fixed": 66,
+      "span": [
+        7.0,
+        9.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D010",
+      "level": "L2",
+      "a": "Security",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 14,
+      "span": [
+        73.0,
+        75.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D011",
+      "level": "L2",
+      "a": "West_Storage",
+      "b": "West_Safe_Room",
+      "axis": "Y",
+      "fixed": 30,
+      "span": [
+        5.0,
+        7.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D012",
+      "level": "L2",
+      "a": "West_Storage",
+      "b": "Circulation",
+      "axis": "X",
+      "fixed": 10,
+      "span": [
+        23.0,
+        25.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D013",
+      "level": "L2",
+      "a": "West_Safe_Room",
+      "b": "Circulation",
+      "axis": "X",
+      "fixed": 10,
+      "span": [
+        35.0,
+        37.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D014",
+      "level": "L2",
+      "a": "East_Archives",
+      "b": "East_Exhibit",
+      "axis": "Y",
+      "fixed": 30,
+      "span": [
+        75.0,
+        77.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L2_D015",
+      "level": "L2",
+      "a": "Meeting",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 42,
+      "span": [
+        27.0,
+        29.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D016",
+      "level": "L2",
+      "a": "Meeting",
+      "b": "Dispatch",
+      "axis": "X",
+      "fixed": 34,
+      "span": [
+        37.0,
+        39.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D017",
+      "level": "L2",
+      "a": "Dispatch",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 42,
+      "span": [
+        39.0,
+        41.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D018",
+      "level": "L2",
+      "a": "Dispatch",
+      "b": "Observation_Control",
+      "axis": "X",
+      "fixed": 46,
+      "span": [
+        37.0,
+        39.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D019",
+      "level": "L2",
+      "a": "Observation_Control",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 42,
+      "span": [
+        51.0,
+        53.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D020",
+      "level": "L2",
+      "a": "Observation_Control",
+      "b": "Circulation",
+      "axis": "X",
+      "fixed": 58,
+      "span": [
+        37.0,
+        39.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D021",
+      "level": "L2",
+      "a": "West_Inner_Office",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 24,
+      "span": [
+        19.0,
+        21.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D022",
+      "level": "L2",
+      "a": "West_Inner_Office",
+      "b": "Circulation",
+      "axis": "X",
+      "fixed": 26,
+      "span": [
+        22.0,
+        24.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D023",
+      "level": "L2",
+      "a": "Radio",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 22,
+      "span": [
+        41.0,
+        43.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D024",
+      "level": "L2",
+      "a": "Radio",
+      "b": "Key_Vault",
+      "axis": "X",
+      "fixed": 50,
+      "span": [
+        19.0,
+        21.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L2_D025",
+      "level": "L2",
+      "a": "Key_Vault",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 26,
+      "span": [
+        53.0,
+        55.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L2_D026",
+      "level": "L2",
+      "a": "Key_Vault",
+      "b": "E_Stair",
+      "axis": "X",
+      "fixed": 58,
+      "span": [
+        23.0,
+        25.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L2_D027",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "West_Storage",
+      "axis": "Y",
+      "fixed": 18,
+      "span": [
+        5.0,
+        7.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D028",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "West_Inner_Office",
+      "axis": "Y",
+      "fixed": 18,
+      "span": [
+        19.0,
+        21.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D029",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "Radio",
+      "axis": "Y",
+      "fixed": 18,
+      "span": [
+        41.0,
+        43.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D030",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "Key_Vault",
+      "axis": "Y",
+      "fixed": 18,
+      "span": [
+        53.0,
+        55.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L2_D031",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "East_Archives",
+      "axis": "Y",
+      "fixed": 18,
+      "span": [
+        75.0,
+        77.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L2_D032",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "West_Inner_Office",
+      "axis": "X",
+      "fixed": 14,
+      "span": [
+        20.0,
+        22.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D033",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "W_Stair",
+      "axis": "X",
+      "fixed": 14,
+      "span": [
+        32.0,
+        34.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D034",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "East_Archives",
+      "axis": "X",
+      "fixed": 70,
+      "span": [
+        23.0,
+        25.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L2_D035",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "East_Exhibit",
+      "axis": "X",
+      "fixed": 70,
+      "span": [
+        35.0,
+        37.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D036",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "Meeting",
+      "axis": "X",
+      "fixed": 22,
+      "span": [
+        39.0,
+        41.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D037",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "W_Stair",
+      "axis": "Y",
+      "fixed": 28,
+      "span": [
+        17.0,
+        19.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D038",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "E_Stair",
+      "axis": "X",
+      "fixed": 58,
+      "span": [
+        27.0,
+        29.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D039",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "Radio",
+      "axis": "X",
+      "fixed": 34,
+      "span": [
+        19.0,
+        21.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D040",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "Key_Vault",
+      "axis": "X",
+      "fixed": 50,
+      "span": [
+        23.0,
+        25.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L2_D041",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "Meeting",
+      "axis": "Y",
+      "fixed": 34,
+      "span": [
+        29.0,
+        31.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D042",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "Observation_Control",
+      "axis": "Y",
+      "fixed": 34,
+      "span": [
+        47.0,
+        49.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D043",
+      "level": "L2",
+      "a": "Circulation",
+      "b": "Dispatch",
+      "axis": "Y",
+      "fixed": 34,
+      "span": [
+        39.0,
+        41.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D044",
+      "level": "L2",
+      "a": "W_Stair",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 38,
+      "span": [
+        17.0,
+        19.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D045",
+      "level": "L2",
+      "a": "W_Stair",
+      "b": "Meeting",
+      "axis": "X",
+      "fixed": 22,
+      "span": [
+        35.0,
+        37.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D046",
+      "level": "L2",
+      "a": "E_Stair",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 34,
+      "span": [
+        61.0,
+        63.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L2_D047",
+      "level": "L2",
+      "a": "E_Stair",
+      "b": "Circulation",
+      "axis": "X",
+      "fixed": 66,
+      "span": [
+        27.0,
+        29.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D048",
+      "level": "L3",
+      "a": "Core",
+      "b": "W_Stair",
+      "axis": "Y",
+      "fixed": 28,
+      "span": [
+        17.0,
+        19.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D049",
+      "level": "L3",
+      "a": "Core",
+      "b": "South_Store",
+      "axis": "Y",
+      "fixed": 42,
+      "span": [
+        28.0,
+        30.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D050",
+      "level": "L3",
+      "a": "Core",
+      "b": "East_Vault",
+      "axis": "X",
+      "fixed": 56,
+      "span": [
+        7.0,
+        9.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L3_D051",
+      "level": "L3",
+      "a": "Core",
+      "b": "Fuse_Store",
+      "axis": "X",
+      "fixed": 56,
+      "span": [
+        15.0,
+        17.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D052",
+      "level": "L3",
+      "a": "Core",
+      "b": "South_Safe_Room",
+      "axis": "X",
+      "fixed": 50,
+      "span": [
+        43.0,
+        45.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D053",
+      "level": "L3",
+      "a": "Core",
+      "b": "W_Stair",
+      "axis": "X",
+      "fixed": 14,
+      "span": [
+        33.0,
+        35.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D054",
+      "level": "L3",
+      "a": "Core",
+      "b": "E_Stair",
+      "axis": "Y",
+      "fixed": 22,
+      "span": [
+        59.0,
+        61.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D055",
+      "level": "L3",
+      "a": "Core",
+      "b": "E_Stair",
+      "axis": "X",
+      "fixed": 58,
+      "span": [
+        27.0,
+        29.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D056",
+      "level": "L3",
+      "a": "West_Archive",
+      "b": "West_Maintenance",
+      "axis": "Y",
+      "fixed": 28,
+      "span": [
+        3.0,
+        5.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D057",
+      "level": "L3",
+      "a": "West_Archive",
+      "b": "Core",
+      "axis": "X",
+      "fixed": 8,
+      "span": [
+        25.0,
+        27.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D058",
+      "level": "L3",
+      "a": "West_Maintenance",
+      "b": "Core",
+      "axis": "X",
+      "fixed": 8,
+      "span": [
+        32.0,
+        34.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D059",
+      "level": "L3",
+      "a": "East_Vault",
+      "b": "Fuse_Store",
+      "axis": "Y",
+      "fixed": 14,
+      "span": [
+        60.0,
+        62.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L3_D060",
+      "level": "L3",
+      "a": "Fuse_Store",
+      "b": "Core",
+      "axis": "Y",
+      "fixed": 18,
+      "span": [
+        58.0,
+        60.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D061",
+      "level": "L3",
+      "a": "South_Store",
+      "b": "Core",
+      "axis": "X",
+      "fixed": 34,
+      "span": [
+        43.0,
+        45.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D062",
+      "level": "L3",
+      "a": "South_Safe_Room",
+      "b": "Core",
+      "axis": "X",
+      "fixed": 64,
+      "span": [
+        42.0,
+        44.0
+      ],
+      "gate": null,
+      "side_latch_from": "South_Safe_Room"
+    },
+    {
+      "id": "L3_D063",
+      "level": "L3",
+      "a": "W_Stair",
+      "b": "Core",
+      "axis": "Y",
+      "fixed": 38,
+      "span": [
+        17.0,
+        19.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L3_D064",
+      "level": "L3",
+      "a": "E_Stair",
+      "b": "Core",
+      "axis": "Y",
+      "fixed": 34,
+      "span": [
+        62.0,
+        64.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D065",
+      "level": "L4",
+      "a": "Water_Intake",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 14,
+      "span": [
+        13.0,
+        15.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D066",
+      "level": "L4",
+      "a": "Water_Intake",
+      "b": "Pump_Control",
+      "axis": "X",
+      "fixed": 26,
+      "span": [
+        7.0,
+        9.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D067",
+      "level": "L4",
+      "a": "Pump_Control",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 14,
+      "span": [
+        31.0,
+        33.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D068",
+      "level": "L4",
+      "a": "Pump_Control",
+      "b": "Generator",
+      "axis": "X",
+      "fixed": 38,
+      "span": [
+        7.0,
+        9.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D069",
+      "level": "L4",
+      "a": "Generator",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 14,
+      "span": [
+        43.0,
+        45.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D070",
+      "level": "L4",
+      "a": "Generator",
+      "b": "Workshop",
+      "axis": "X",
+      "fixed": 50,
+      "span": [
+        7.0,
+        9.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D071",
+      "level": "L4",
+      "a": "Workshop",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 14,
+      "span": [
+        65.0,
+        67.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D072",
+      "level": "L4",
+      "a": "West_Cistern",
+      "b": "Circulation",
+      "axis": "X",
+      "fixed": 10,
+      "span": [
+        29.0,
+        31.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D073",
+      "level": "L4",
+      "a": "Switchgear",
+      "b": "Service_Exit",
+      "axis": "Y",
+      "fixed": 30,
+      "span": [
+        75.0,
+        77.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D074",
+      "level": "L4",
+      "a": "Boiler",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 42,
+      "span": [
+        33.0,
+        35.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D075",
+      "level": "L4",
+      "a": "Boiler",
+      "b": "Valve_Room",
+      "axis": "X",
+      "fixed": 46,
+      "span": [
+        37.0,
+        39.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D076",
+      "level": "L4",
+      "a": "Valve_Room",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 42,
+      "span": [
+        51.0,
+        53.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D077",
+      "level": "L4",
+      "a": "Valve_Room",
+      "b": "Circulation",
+      "axis": "X",
+      "fixed": 58,
+      "span": [
+        37.0,
+        39.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D078",
+      "level": "L4",
+      "a": "Tool_Room",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 24,
+      "span": [
+        19.0,
+        21.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D079",
+      "level": "L4",
+      "a": "Tool_Room",
+      "b": "Atrium_Hall",
+      "axis": "X",
+      "fixed": 26,
+      "span": [
+        22.0,
+        24.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D080",
+      "level": "L4",
+      "a": "Power_Console",
+      "b": "Atrium_Hall",
+      "axis": "Y",
+      "fixed": 22,
+      "span": [
+        41.0,
+        43.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D081",
+      "level": "L4",
+      "a": "Power_Console",
+      "b": "Emergency_Store",
+      "axis": "X",
+      "fixed": 50,
+      "span": [
+        19.0,
+        21.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L4_D082",
+      "level": "L4",
+      "a": "Emergency_Store",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 26,
+      "span": [
+        53.0,
+        55.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L4_D083",
+      "level": "L4",
+      "a": "Emergency_Store",
+      "b": "E_Stair",
+      "axis": "X",
+      "fixed": 58,
+      "span": [
+        23.0,
+        25.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L4_D084",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "West_Cistern",
+      "axis": "Y",
+      "fixed": 18,
+      "span": [
+        5.0,
+        7.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D085",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "Tool_Room",
+      "axis": "Y",
+      "fixed": 18,
+      "span": [
+        19.0,
+        21.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D086",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "Power_Console",
+      "axis": "Y",
+      "fixed": 18,
+      "span": [
+        41.0,
+        43.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D087",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "Emergency_Store",
+      "axis": "Y",
+      "fixed": 18,
+      "span": [
+        53.0,
+        55.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L4_D088",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "Switchgear",
+      "axis": "Y",
+      "fixed": 18,
+      "span": [
+        75.0,
+        77.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D089",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "Tool_Room",
+      "axis": "X",
+      "fixed": 14,
+      "span": [
+        20.0,
+        22.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D090",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "W_Stair",
+      "axis": "X",
+      "fixed": 14,
+      "span": [
+        32.0,
+        34.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D091",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "Switchgear",
+      "axis": "X",
+      "fixed": 70,
+      "span": [
+        23.0,
+        25.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D092",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "Service_Exit",
+      "axis": "X",
+      "fixed": 70,
+      "span": [
+        35.0,
+        37.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D093",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "Boiler",
+      "axis": "X",
+      "fixed": 22,
+      "span": [
+        39.0,
+        41.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D094",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "W_Stair",
+      "axis": "Y",
+      "fixed": 28,
+      "span": [
+        17.0,
+        19.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D095",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "Atrium_Hall",
+      "axis": "X",
+      "fixed": 26,
+      "span": [
+        25.0,
+        27.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D096",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "E_Stair",
+      "axis": "X",
+      "fixed": 58,
+      "span": [
+        27.0,
+        29.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D097",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "Atrium_Hall",
+      "axis": "Y",
+      "fixed": 22,
+      "span": [
+        31.0,
+        33.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D098",
+      "level": "L4",
+      "a": "Circulation",
+      "b": "Power_Console",
+      "axis": "X",
+      "fixed": 34,
+      "span": [
+        19.0,
+        21.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D099",
+      "level": "L4",
+      "a": "Atrium_Hall",
+      "b": "Emergency_Store",
+      "axis": "X",
+      "fixed": 50,
+      "span": [
+        23.0,
+        25.0
+      ],
+      "gate": "POWER"
+    },
+    {
+      "id": "L4_D100",
+      "level": "L4",
+      "a": "Atrium_Hall",
+      "b": "Boiler",
+      "axis": "Y",
+      "fixed": 34,
+      "span": [
+        35.0,
+        37.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D101",
+      "level": "L4",
+      "a": "Atrium_Hall",
+      "b": "Valve_Room",
+      "axis": "Y",
+      "fixed": 34,
+      "span": [
+        47.0,
+        49.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D102",
+      "level": "L4",
+      "a": "Atrium_Hall",
+      "b": "Circulation",
+      "axis": "X",
+      "fixed": 50,
+      "span": [
+        27.0,
+        29.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D103",
+      "level": "L4",
+      "a": "W_Stair",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 38,
+      "span": [
+        17.0,
+        19.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D104",
+      "level": "L4",
+      "a": "W_Stair",
+      "b": "Boiler",
+      "axis": "X",
+      "fixed": 22,
+      "span": [
+        35.0,
+        37.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D105",
+      "level": "L4",
+      "a": "E_Stair",
+      "b": "Circulation",
+      "axis": "Y",
+      "fixed": 34,
+      "span": [
+        61.0,
+        63.0
+      ],
+      "gate": null
+    },
+    {
+      "id": "L4_D106",
+      "level": "L4",
+      "a": "E_Stair",
+      "b": "Circulation",
+      "axis": "X",
+      "fixed": 66,
+      "span": [
+        27.0,
+        29.0
+      ],
+      "gate": null
+    }
+  ],
+  "stairs": {
+    "W": [
+      14,
+      28,
+      8,
+      10
+    ],
+    "E": [
+      58,
+      22,
+      8,
+      12
+    ]
+  },
+  "objectives": [
+    [
+      "SERVICE_KEY",
+      "L2",
+      "Records",
+      8,
+      8
+    ],
+    [
+      "FUSE",
+      "L3",
+      "Core",
+      43,
+      16
+    ],
+    [
+      "POWER",
+      "L4",
+      "Power_Console",
+      42,
+      20
+    ],
+    [
+      "EARTH",
+      "L3",
+      "Core",
+      40,
+      39
+    ]
+  ]
+}
