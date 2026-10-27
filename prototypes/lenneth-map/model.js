@@ -10,6 +10,7 @@ export const OBJECT_TYPES = {
  chest:{name:'宝箱',color:'#d7b36c',glyph:'▣'}, enemy:{name:'敌人',color:'#d88088',glyph:'◆'},
  switch:{name:'机关',color:'#d49de7',glyph:'⚙'}, ladder:{name:'梯子',color:'#dbb98a',glyph:'↕'},
  save:{name:'存档点',color:'#87dbc5',glyph:'✧'}, hazard:{name:'危险区',color:'#e37979',glyph:'△'},
+ door:{name:'出入口标记',color:'#d9b777',glyph:'╫'}, key:{name:'钥匙标记',color:'#e3cc6b',glyph:'✦'},
  block:{name:'可推拉物',color:'#bfa281',glyph:'□'}, note:{name:'注释',color:'#a1a9ba',glyph:'✎'},
 };
 export function newRoom(index=1, depth=0, x=0, y=0) {
@@ -79,6 +80,6 @@ export function audit(doc){
   if(l.type==='depth'&&!['front','back'].includes(l.fromPort))issues.push(`前后景连接建议使用前景/后景端口：${a.name}`);
   if(l.type==='drop'&&!l.oneWay)issues.push(`落下通路尚未设置为单向：${a.name} → ${b.name}`);
  }
- for(const f of doc.flags)if(!f.initial&&doc.links.some(l=>l.requires.includes(f.id))&&!doc.rooms.some(r=>r.objects.some(o=>o.flagId===f.id)))issues.push(`条件没有获取点：${f.name}`);
+ for(const f of doc.flags)if(!f.initial&&doc.links.some(l=>l.requires.includes(f.id))&&!doc.rooms.some(r=>r.objects.some(o=>o.type!=='door'&&o.flagId===f.id)))issues.push(`条件没有获取点：${f.name}`);
  return issues;
 }

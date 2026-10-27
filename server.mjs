@@ -19,7 +19,7 @@ const MIME = {
   '.ico': 'image/x-icon',
 };
 const MAX_BODY = 30 * 1024 * 1024;
-const PUBLIC_FILES = new Set(['index.html', 'editor.html', 'portal.css', 'styles.css', 'src/portal.js', 'src/model.js', 'src/clipboard.js', 'src/sync.js', 'src/board.js', 'src/board-ops.mjs', 'src/icons.js', 'src/io.js', 'src/viewport.js', 'prototypes/mvmap-zh/index.html', 'prototypes/mvmap-zh/manual.html', 'prototypes/mvmap-zh/sync.js', ...['index.html', 'style.css', 'app.js', 'model.js', 'storage.js', 'preview3d.js', 'manual.html'].map(file => 'prototypes/lenneth-map/' + file)]);
+const PUBLIC_FILES = new Set(['index.html', 'editor.html', 'portal.css', 'styles.css', 'src/portal.js', 'src/model.js', 'src/clipboard.js', 'src/sync.js', 'src/board.js', 'src/board-ops.mjs', 'src/icons.js', 'src/io.js', 'src/viewport.js', 'prototypes/mvmap-zh/index.html', 'prototypes/mvmap-zh/manual.html', 'prototypes/mvmap-zh/sync.js', ...['index.html', 'style.css', 'app.js', 'model.js', 'storage.js', 'preview3d.js', 'room-grid.js', 'manual.html'].map(file => 'prototypes/lenneth-map/' + file)]);
 
 function sendJson(res, status, body) {
   res.writeHead(status, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });

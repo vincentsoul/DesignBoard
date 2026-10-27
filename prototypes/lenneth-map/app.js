@@ -1,5 +1,6 @@
 import {uid,clone,newRoom,newProject,sampleProject,validateProject,PORTS,LINK_TYPES,ROOM_TYPES,OBJECT_TYPES,removeRoom,removeFlag,reachableRooms,linkPassable,audit} from './model.js';
 import {Preview3D,clampPitch} from './preview3d.js';
+import {TERRAIN_TYPES,editRoomCells,brushCells} from './room-grid.js';
 import {ProjectStorage} from './storage.js';
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store=new ProjectStorage();
@@ -10,6 +11,7 @@ let cam={x:0,y:0,zoom:1},drag=null,space=false,dirty=false,saveError=false,timer
 const undoStack=[],redoStack=[],enabled=new Set();
 const canvas=$('#canvas'),ctx=canvas.getContext('2d');let width=800,height=600,dpr=1;
 const GRID=26;
+let brushSize=1,hoverCell=null;
 const room=id=>doc.rooms.find(r=>r.id===id),link=id=>doc.links.find(l=>l.id===id);
 const selectedRoom=()=>selection?.type==='room'?room(selection.id):room(detailId);
 const selectedObject=()=>selection?.type==='object'?room(detailId)?.objects.find(o=>o.id===selection.id):null;
@@ -51,7 +53,7 @@ function renderInspector(){
  const host=$('#inspector'),r=selectedRoom(),o=selectedObject();
  if(selection?.type==='object'&&o){
   $('#inspector-title').textContent='室内对象';
-  host.innerHTML=`<p class="tag">${esc(OBJECT_TYPES[o.type].name)} / 4× 子网格</p>${select('类型','type',o.type,Object.fromEntries(Object.entries(OBJECT_TYPES).map(([k,v])=>[k,v.name])))}${input('标签','label',o.label)}<div class="field-row">${input('X','x',o.x,'number','min="0"')}${input('Y','y',o.y,'number','min="0"')}</div><div class="field-row">${input('宽度','w',o.w,'number','min="1"')}${input('高度','h',o.h,'number','min="1"')}</div>${select('可触发的条件（设计标记）','flagId',o.flagId||'',{'':'无',...Object.fromEntries(doc.flags.map(f=>[f.id,f.name]))})}<p class="small muted">触发条件是设计标记，不会在预览中自动激活。请手动勾选左侧条件。</p><button class="danger" id="delete-selection">删除对象</button>`;
+  host.innerHTML=`<p class="tag">${esc(OBJECT_TYPES[o.type].name)} / 4× 子网格</p>${select('类型','type',o.type,Object.fromEntries(Object.entries(OBJECT_TYPES).map(([k,v])=>[k,v.name])))}${input('标签','label',o.label)}<div class="field-row">${input('X','x',o.x,'number','min="0"')}${input('Y','y',o.y,'number','min="0"')}</div><div class="field-row">${input('宽度','w',o.w,'number','min="1"')}${input('高度','h',o.h,'number','min="1"')}</div>${select(o.type==='door'?'关联条件（出入口定位标记）':'获得 / 触发的条件（设计标记）','flagId',o.flagId||'',{'':'无',...Object.fromEntries(doc.flags.map(f=>[f.id,f.name]))})}<p class="small muted">${o.type==='door'?'出入口用于室内定位，跨房间通行与门槛在总览连线中配置。':'条件不会自动激活，请手动勾选左侧条件进行预览。'}</p><button class="danger" id="delete-selection">删除对象</button>`;
   bindFields(o,()=>{if(o.flagId==='')o.flagId=null;});
  }else if(selection?.type==='link'&&link(selection.id)){
   const l=link(selection.id);$('#inspector-title').textContent='房间连接';
@@ -89,16 +91,19 @@ function render(){
  $('#preview-3d-controls').hidden=!view3D;
  $('#preview').classList.toggle('on',preview);$('#back').hidden=!detailId;
  $('#view-label').textContent=view3D?'3D 空间预览':detailId?'室内灰盒':'迷宫总览';$('#view-title').textContent=detailId?(room(detailId)?.name||'房间'):depth===null?'所有景深':`景深 Z${depth}`;
+ $('#room-editor-tools').hidden=!detailId;
+ $('#room-editor-tools').querySelectorAll('[data-room-tool]').forEach(b=>b.classList.toggle('on',tool===b.dataset.roomTool));
  $('#detail-palette').hidden=!detailId;
  $('#detail-palette').innerHTML=Object.entries(OBJECT_TYPES).map(([type,v])=>`<button data-object-type="${type}" class="${type===objectType?'on':''}">${v.glyph} ${v.name}</button>`).join('');
- $('#detail-palette').querySelectorAll('button').forEach(b=>b.onclick=()=>{objectType=b.dataset.objectType;tool='room';render();});
+ if(detailId)$('#detail-palette').style.top=($('#room-editor-tools').offsetTop+$('#room-editor-tools').offsetHeight+8)+'px';
+ $('#detail-palette').querySelectorAll('button').forEach(b=>b.onclick=()=>{objectType=b.dataset.objectType;tool=tool==='paint'&&TERRAIN_TYPES.has(objectType)?'paint':'room';render();});
  $('#tools [data-tool="room"]').innerHTML=detailId?'<b>▭</b>方框 <kbd>R</kbd>':'<b>▭</b>房间 <kbd>R</kbd>';
  $('#tools').querySelectorAll('[data-tool]').forEach(b=>b.disabled=view3D);
  $('#tools [data-tool="link"]').disabled=!!detailId||view3D;
  $('#add-room').disabled=view3D;$('#add-depth').disabled=view3D;$('#add-flag').disabled=view3D;
  $('.canvas-caption').hidden=!!detailId||view3D;$('#empty').hidden=!!doc.rooms.length;
  $('#summary').textContent=`${doc.rooms.length} 个房间 · ${doc.links.length} 条连接 · ${doc.flags.length} 个条件`;
- const hints={select:detailId?'点击选择对象 · 拖动移动 / 右下角缩放 · Esc 返回总览':'点击选择 · 拖动移动 / 右下角缩放 · 双击编辑室内',room:detailId?'拖出室内方框 · 使用上方类型工具条切换':'拖出房间矩形 · 当前新增景深 Z'+activeDepth,link:linkSource?'请选择目标房间（可在左侧切换景深）':'依次点击起点和终点房间 · 可跨景深连接',erase:'点击删除对象 · Ctrl/Cmd+Z 撤销',pan:'拖动画布平移 · 滚轮缩放 · F 适应'};
+ const hints={paint:'拖动连续绘制地形 · Alt 临时擦除 · 一次拖动可撤销',door:'点击放置室内出入口标记 · 在总览中配置房间连线',key:'点击放置钥匙标记 · 在属性中关联机关条件',select:detailId?'点击选择对象 · 拖动移动 / 右下角缩放 · Esc 返回总览':'点击选择 · 拖动移动 / 右下角缩放 · 双击编辑室内',room:detailId?'拖出室内方框 · 使用上方类型工具条切换':'拖出房间矩形 · 当前新增景深 Z'+activeDepth,link:linkSource?'请选择目标房间（可在左侧切换景深）':'依次点击起点和终点房间 · 可跨景深连接',erase:detailId?'拖动擦除地形格 · 碰到物件会整项删除 · 可撤销':'点击删除对象 · Ctrl/Cmd+Z 撤销',pan:'拖动画布平移 · 滚轮缩放 · F 适应'};
  $('#hint').textContent=view3D?'拖动旋转 · 右键 / 中键 / Shift 拖动平移 · 滚轮缩放 · 双击房间进入二维':hints[tool];renderInspector();
  if(view3D){$('#inspector').querySelectorAll('input,textarea,select,button').forEach(el=>el.disabled=el.id!=='open-detail');}
  draw();
@@ -148,18 +153,23 @@ const filename=()=>doc.name.replace(/[<>:"/\\|?*\u0000-\u001f]+/g,'-').slice(0,1
 $('#export').onclick=()=>download(new Blob([JSON.stringify(doc,null,2)],{type:'application/json'}),filename()+'.lenneth.json');
 $('#import').onclick=()=>$('#file-input').click();
 $('#file-input').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;if(file.size>30*1024*1024){notify('文件超过 30 MiB。');return;}try{const value=validateProject(JSON.parse(await file.text()));if(!(await beforeSwitch()))return;value.id=uid('lenneth');setDocument({doc:value,revision:null});dirty=true;generation++;schedule();}catch(e){notify('导入失败：'+e.message);}};
-function openDetail(id){if(!room(id))return;view3D=false;detailId=id;selection={type:'room',id};linkSource=null;tool='select';render();fit();}
-$('#back').onclick=()=>{detailId=null;selection=null;tool='select';render();fit();};
+function openDetail(id){if(!room(id))return;hoverCell=null;view3D=false;detailId=id;selection={type:'room',id};linkSource=null;tool='select';render();fit();}
+$('#back').onclick=()=>{hoverCell=null;detailId=null;selection=null;tool='select';render();fit();};
 const screen=(x,y,c=cam,w=width,h=height)=>({x:(x*GRID-c.x)*c.zoom+w/2,y:(y*GRID-c.y)*c.zoom+h/2});
 const world=(p)=>({x:((p.x-width/2)/cam.zoom+cam.x)/GRID,y:((p.y-height/2)/cam.zoom+cam.y)/GRID});
 const pos=e=>{const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};};
 function bounds(){if(detailId){const r=room(detailId);return{x:0,y:0,w:r.w*4,h:r.h*4};}const rooms=visibleRooms();if(!rooms.length)return{x:-10,y:-6,w:20,h:12};const x=Math.min(...rooms.map(r=>r.x)),y=Math.min(...rooms.map(r=>r.y));return{x,y,w:Math.max(...rooms.map(r=>r.x+r.w))-x,h:Math.max(...rooms.map(r=>r.y+r.h))-y};}
-function fit(){if(view3D){orbit.fit(visibleRooms(),width,height);draw();return;}const b=bounds();cam.x=(b.x+b.w/2)*GRID;cam.y=(b.y+b.h/2)*GRID;cam.zoom=Math.max(.12,Math.min(2,(width-100)/((b.w+4)*GRID),(height-(detailId?190:150))/((b.h+4)*GRID)));draw();}
+function fit(){
+ if(view3D){orbit.fit(visibleRooms(),width,height);draw();return;}
+ const b=bounds(),top=detailId?$('#detail-palette').getBoundingClientRect().bottom-$('#canvas-wrap').getBoundingClientRect().top+18:65,bottom=65;
+ cam.zoom=Math.max(.12,Math.min(2,(width-100)/((b.w+4)*GRID),Math.max(40,height-top-bottom)/((b.h+4)*GRID)));
+ cam.x=(b.x+b.w/2)*GRID;cam.y=(b.y+b.h/2)*GRID-(top-bottom)/2/cam.zoom;draw();
+}
 $('#fit').onclick=fit;
 function set3D(value){
  if(drag?.backup)doc=JSON.parse(drag.backup);
  if(detailId&&value)selection={type:'room',id:detailId};
- drag=null;view3D=value;detailId=null;linkSource=null;tool='select';render();fit();
+ drag=null;if(dirty)schedule();view3D=value;detailId=null;linkSource=null;tool='select';render();fit();
 }
 $('#view-3d').onclick=()=>set3D(!view3D);
 $('#preview-3d-controls').querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>{orbit.preset(button.dataset.view,visibleRooms(),width,height);draw();});
@@ -217,7 +227,10 @@ function drawDetail(g,w,h,c){
  g.fillStyle='#152434';g.fillRect(p.x,p.y,rw,rh);g.strokeStyle=r.color;g.lineWidth=2;g.strokeRect(p.x,p.y,rw,rh);
  g.save();g.beginPath();g.rect(p.x,p.y,rw,rh);g.clip();
  if(unit>4){for(let x=0;x<=r.w*4;x++){g.strokeStyle=x%4===0?'#6d8aab40':'#6d8aab17';g.beginPath();g.moveTo(p.x+x*unit,p.y);g.lineTo(p.x+x*unit,p.y+rh);g.stroke();}for(let y=0;y<=r.h*4;y++){g.strokeStyle=y%4===0?'#6d8aab40':'#6d8aab17';g.beginPath();g.moveTo(p.x,p.y+y*unit);g.lineTo(p.x+rw,p.y+y*unit);g.stroke();}}
- for(const o of r.objects){const t=OBJECT_TYPES[o.type],q=screen(o.x,o.y,c,w,h),ow=o.w*unit,oh=o.h*unit;g.fillStyle=t.color+(o.type==='solid'?'80':'33');g.strokeStyle=selection?.id===o.id?'#f1d08c':t.color;g.lineWidth=selection?.id===o.id?2:1;rounded(g,q.x,q.y,ow,oh,Math.min(3,ow/4,oh/4));g.fill();g.stroke();if(ow>24&&oh>18){g.save();g.beginPath();g.rect(q.x,q.y,ow,oh);g.clip();text(g,`${t.glyph} ${o.label||t.name}`,q.x+5,q.y+Math.min(oh/2+4,20),t.color,Math.max(10,Math.min(12,unit*.9)));g.restore();}if(selection?.id===o.id){g.fillStyle='#f1d08c';g.fillRect(q.x+ow-7,q.y+oh-7,7,7);}}
+ for(const o of r.objects){const t=OBJECT_TYPES[o.type],q=screen(o.x,o.y,c,w,h),ow=o.w*unit,oh=o.h*unit;g.fillStyle=t.color+(o.type==='solid'?'80':'33');g.strokeStyle=selection?.id===o.id?'#f1d08c':t.color;g.lineWidth=selection?.id===o.id?2:1;rounded(g,q.x,q.y,ow,oh,Math.min(3,ow/4,oh/4));g.fill();g.stroke();if(ow>24&&oh>18&&(!o.brush||!TERRAIN_TYPES.has(o.type))){g.save();g.beginPath();g.rect(q.x,q.y,ow,oh);g.clip();text(g,`${t.glyph} ${o.label||t.name}`,q.x+5,q.y+Math.min(oh/2+4,20),t.color,Math.max(10,Math.min(12,unit*.9)));g.restore();}if(selection?.id===o.id){g.fillStyle='#f1d08c';g.fillRect(q.x+ow-7,q.y+oh-7,7,7);}}
+ if(hoverCell&&['paint','erase'].includes(tool)){
+  const q=screen(hoverCell.x,hoverCell.y,c,w,h);g.fillStyle=tool==='erase'?'#e3797933':'#85b6e433';g.strokeStyle=tool==='erase'?'#e37979':'#a4cff0';g.fillRect(q.x,q.y,brushSize*unit,brushSize*unit);g.strokeRect(q.x,q.y,brushSize*unit,brushSize*unit);
+ }
  g.restore();
  for(const l of doc.links.filter(l=>l.from===r.id||l.to===r.id)){const po=l.from===r.id?l.fromPort:l.toPort,pr=port({x:0,y:0,w:r.w*4,h:r.h*4},po),q=screen(pr.x,pr.y,c,w,h);g.fillStyle='#d9b777';g.fillRect(q.x-5,q.y-5,10,10);text(g,PORTS[po]+' → '+(room(l.from===r.id?l.to:l.from)?.name||''),q.x+10,q.y-8,'#d9b777',11);}
 }
@@ -232,6 +245,21 @@ function connectTo(r){
  const toPort={back:'front',front:'back',down:'up',up:'down',right:'left',left:'right'}[fromPort];
  mutate(()=>{const l={id:uid('link'),from:a.id,to:r.id,fromPort,toPort,type,oneWay:false,requires:[],logic:'all',notes:''};doc.links.push(l);selection={type:'link',id:l.id};linkSource=null;});
 }
+function setRoomTool(next){
+ tool=next;linkSource=null;
+ if(tool==='paint'&&!TERRAIN_TYPES.has(objectType))objectType='solid';
+ if(tool==='door'||tool==='key')objectType=tool;
+ render();
+}
+$('#room-editor-tools').querySelectorAll('[data-room-tool]').forEach(b=>b.onclick=()=>setRoomTool(b.dataset.roomTool));
+$('#brush-size').onchange=e=>{brushSize=Number(e.target.value);draw();};
+function continueBrush(point){
+ const r=room(drag.roomId),cell={x:Math.floor(point.x),y:Math.floor(point.y)};
+ for(const k of brushCells(r,drag.last,cell,brushSize))drag.cells.add(k);
+ drag.last=cell;
+ try{r.objects=editRoomCells({...r,objects:drag.baseObjects},drag.cells,drag.type,drag.erase);draw();}
+ catch(e){doc=JSON.parse(drag.backup);drag=null;notify(e.message);render();if(dirty)schedule();}
+}
 canvas.addEventListener('pointerdown',e=>{
  if(view3D){
   if(![0,1,2].includes(e.button))return;canvas.focus();canvas.setPointerCapture(e.pointerId);
@@ -239,21 +267,34 @@ canvas.addEventListener('pointerdown',e=>{
  }
  if(e.button!==0&&e.button!==1)return;canvas.focus();canvas.setPointerCapture(e.pointerId);const p=pos(e),a=world(p);
  if(e.button===1||space||tool==='pan'){drag={kind:'pan',p,cam:{...cam}};return;}
+ if(detailId&&['paint','erase','door','key'].includes(tool)){
+  const r=room(detailId);if(a.x<0||a.y<0||a.x>=r.w*4||a.y>=r.h*4)return;
+  const cell={x:Math.floor(a.x),y:Math.floor(a.y)};
+  if(tool==='door'||tool==='key'){
+   mutate(()=>{const type=tool,o={id:uid('object'),type,x:cell.x,y:cell.y,w:Math.min(2,r.w*4-cell.x),h:Math.min(type==='door'?4:2,r.h*4-cell.y),label:'',flagId:null};r.objects.push(o);selection={type:'object',id:o.id};});return;
+  }
+  clearTimeout(timer);timer=null;
+  drag={kind:'brush',roomId:r.id,last:cell,cells:new Set(),baseObjects:clone(r.objects),type:objectType,erase:tool==='erase'||e.altKey,backup:JSON.stringify(doc)};
+  selection=null;continueBrush(a);return;
+ }
  if(tool==='link'&&!detailId){const r=hitRoom(p);if(r)connectTo(r);else{const l=hitLink(p);if(l){selection={type:'link',id:l.id};render();}}return;}
  const hit=detailId?hitObject(p):hitRoom(p),l=!detailId&&!hit?hitLink(p):null;
  if(tool==='erase'){if(hit||l){selection={type:l?'link':detailId?'object':'room',id:(hit||l).id};deleteSelection();}return;}
  if(tool==='room'){
   if(detailId){const r=room(detailId);if(a.x<0||a.y<0||a.x>=r.w*4||a.y>=r.h*4)return;}
-  drag={kind:'create',a:{x:Math.floor(a.x),y:Math.floor(a.y)},b:{x:Math.floor(a.x)+1,y:Math.floor(a.y)+1}};draw();return;
+  drag={kind:'create',erase:e.altKey,a:{x:Math.floor(a.x),y:Math.floor(a.y)},b:{x:Math.floor(a.x)+1,y:Math.floor(a.y)+1}};draw();return;
  }
  if(hit){selection={type:detailId?'object':'room',id:hit.id};const corner=screen(hit.x+hit.w,hit.y+hit.h);drag={kind:Math.hypot(corner.x-p.x,corner.y-p.y)<13?'resize':'move',target:hit,original:clone(hit),a,backup:JSON.stringify(doc)};}
  else{selection=l?{type:'link',id:l.id}:null;}
  render();
 });
 canvas.addEventListener('pointermove',e=>{
- if(!drag)return;const p=pos(e);
+ const p=pos(e);
+ if(detailId&&!view3D){const a=world(p),r=room(detailId);hoverCell=a.x>=0&&a.y>=0&&a.x<r.w*4&&a.y<r.h*4?{x:Math.floor(a.x),y:Math.floor(a.y)}:null;if(!drag&&['paint','erase'].includes(tool))draw();}
+ if(!drag)return;
  if(drag.kind==='orbit'){const dx=p.x-drag.p.x,dy=p.y-drag.p.y;drag.moved=drag.moved||Math.hypot(dx,dy)>4;if(drag.pan){orbit.camera.panX=drag.camera.panX+dx;orbit.camera.panY=drag.camera.panY+dy;}else{orbit.camera.yaw=drag.camera.yaw+dx*.008;orbit.camera.pitch=clampPitch(drag.camera.pitch+dy*.008);}draw();return;}
  const a=world(p);
+ if(drag.kind==='brush'){continueBrush(a);return;}
  if(drag.kind==='pan'){cam.x=drag.cam.x-(p.x-drag.p.x)/cam.zoom;cam.y=drag.cam.y-(p.y-drag.p.y)/cam.zoom;draw();return;}
  if(drag.kind==='create'){
   let x=Math.ceil(a.x),y=Math.ceil(a.y);if(detailId){const r=room(detailId);x=Math.max(0,Math.min(r.w*4,x));y=Math.max(0,Math.min(r.h*4,y));}drag.b={x,y};draw();return;
@@ -272,12 +313,17 @@ function endDrag(){
  if(!drag)return;const d=drag;drag=null;
  if(d.kind==='create'){
   const x=Math.min(d.a.x,d.b.x),y=Math.min(d.a.y,d.b.y),w=Math.max(1,Math.abs(d.b.x-d.a.x)),h=Math.max(1,Math.abs(d.b.y-d.a.y));
+  if(detailId&&TERRAIN_TYPES.has(objectType)){
+   const r=room(detailId),cells=new Set();for(let py=y;py<Math.min(y+h,r.h*4);py++)for(let px=x;px<Math.min(x+w,r.w*4);px++)cells.add(px+','+py);
+   try{const objects=editRoomCells(r,cells,objectType,d.erase);mutate(()=>{r.objects=objects;selection=null;});}catch(e){notify(e.message);render();}return;
+  }
   mutate(()=>{if(detailId){const r=room(detailId);const o={id:uid('object'),type:objectType,x,y,w:Math.min(w,r.w*4-x),h:Math.min(h,r.h*4-y),label:'',flagId:null};if(o.w>0&&o.h>0){r.objects.push(o);selection={type:'object',id:o.id};}}else{const r={...newRoom(doc.rooms.length+1,activeDepth,x,y),w:Math.min(128,w),h:Math.min(64,h)};doc.rooms.push(r);selection={type:'room',id:r.id};if(!doc.startRoomId)doc.startRoomId=r.id;}});
- }else if(d.backup&&JSON.stringify(doc)!==d.backup){undoStack.push(d.backup);if(undoStack.length>100)undoStack.shift();redoStack.length=0;changed();}else render();
+ }else if(d.backup&&JSON.stringify(doc)!==d.backup){undoStack.push(d.backup);if(undoStack.length>100)undoStack.shift();redoStack.length=0;changed();}else{render();if(dirty&&!timer)schedule();}
 }
+canvas.addEventListener('pointerleave',()=>{hoverCell=null;if(!drag)draw();});
 canvas.addEventListener('pointerup',e=>{if(drag?.kind==='orbit'){const d=drag;drag=null;if(!d.moved&&!d.pan){const id=orbit.pick(pos(e));selection=id?{type:'room',id}:null;render();}return;}endDrag();});
 canvas.addEventListener('contextmenu',e=>{if(view3D)e.preventDefault();});
-canvas.addEventListener('pointercancel',()=>{if(drag?.backup)doc=JSON.parse(drag.backup);drag=null;render();});
+canvas.addEventListener('pointercancel',()=>{if(drag?.backup)doc=JSON.parse(drag.backup);drag=null;render();if(dirty)schedule();});
 canvas.addEventListener('dblclick',e=>{if(view3D){const id=orbit.pick(pos(e));if(id)openDetail(id);return;}if(detailId||tool!=='select')return;const r=hitRoom(pos(e));if(r)openDetail(r.id);});
 canvas.addEventListener('wheel',e=>{e.preventDefault();if(view3D){orbit.camera.zoom=Math.max(.15,Math.min(8,orbit.camera.zoom*Math.exp(-Math.max(-120,Math.min(120,e.deltaY))*.002)));draw();return;}const p=pos(e),a=world(p);cam.zoom=Math.max(.1,Math.min(5,cam.zoom*Math.exp(-Math.max(-120,Math.min(120,e.deltaY))*.002)));cam.x=a.x*GRID-(p.x-width/2)/cam.zoom;cam.y=a.y*GRID-(p.y-height/2)/cam.zoom;draw();},{passive:false});
 window.addEventListener('keydown',e=>{
@@ -294,10 +340,12 @@ window.addEventListener('keydown',e=>{
  }
  if(mod&&key==='z'){e.preventDefault();undo(e.shiftKey);return;}if(mod&&key==='y'){e.preventDefault();undo(true);return;}if(mod&&key==='s'){e.preventDefault();$('#export').click();return;}if(mod)return;
  if(key===' '){e.preventDefault();space=true;return;}
- if(key==='escape'){if(drag){if(drag.backup)doc=JSON.parse(drag.backup);drag=null;}else if(linkSource)linkSource=null;else if(selection?.type==='object')selection=null;else if(detailId){$('#back').click();return;}else selection=null;render();return;}
+ if(key==='escape'){if(drag){if(drag.backup)doc=JSON.parse(drag.backup);drag=null;if(dirty)schedule();}else if(linkSource)linkSource=null;else if(selection?.type==='object')selection=null;else if(detailId){$('#back').click();return;}else selection=null;render();return;}
  if(key==='delete'||key==='backspace'){e.preventDefault();deleteSelection();return;}
  if(key==='enter'&&selectedRoom()&&!detailId){openDetail(selectedRoom().id);return;}
- if(key==='f'){fit();return;}const tools={v:'select',r:'room',b:'room',c:'link',e:'erase',h:'pan'};if(tools[key]&&!(detailId&&key==='c')){tool=tools[key];linkSource=null;render();}
+ if(key==='f'){fit();return;}
+ if(detailId&&['b','r','v','e','d','k','h'].includes(key)){setRoomTool({b:'paint',r:'room',v:'select',e:'erase',d:'door',k:'key',h:'pan'}[key]);return;}
+ const tools={v:'select',r:'room',b:'room',c:'link',e:'erase',h:'pan'};if(tools[key]&&!(detailId&&key==='c')){tool=tools[key];linkSource=null;render();}
 });
 window.addEventListener('keyup',e=>{if(e.key===' ')space=false;});window.addEventListener('blur',()=>space=false);
 window.addEventListener('beforeunload',e=>{if(dirty||saveError||drag?.backup){e.preventDefault();e.returnValue='';}});

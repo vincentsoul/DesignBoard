@@ -57,7 +57,7 @@ test('NAS editor and API inherit authentication; all module and manual routes re
  assert.equal((await fetch(url+'/api/lennethmaps')).status,401);assert.equal((await put(sampleProject())).status,401);
  assert.equal((await fetch(url+'/lenneth-map/',{redirect:'manual'})).status,302);
  const login=await fetch(url+'/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'test',password:'test-only'})});const cookie=login.headers.get('set-cookie').split(';')[0];
- for(const route of ['/lenneth-map/','/lenneth-map/app.js','/lenneth-map/model.js','/lenneth-map/storage.js','/lenneth-map/style.css','/lenneth-map/preview3d.js','/lenneth-map/manual.html'])assert.equal((await fetch(url+route,{headers:{cookie}})).status,200,route);
+ for(const route of ['/lenneth-map/','/lenneth-map/app.js','/lenneth-map/model.js','/lenneth-map/storage.js','/lenneth-map/style.css','/lenneth-map/preview3d.js','/lenneth-map/room-grid.js','/lenneth-map/manual.html'])assert.equal((await fetch(url+route,{headers:{cookie}})).status,200,route);
  assert.equal((await put(sampleProject(),null,{cookie})).status,200);
  assert.equal((await put(sampleProject(),null,{cookie,origin:'https://evil.example'})).status,403);
 });
