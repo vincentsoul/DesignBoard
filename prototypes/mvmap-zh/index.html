@@ -709,6 +709,8 @@
       ::-webkit-scrollbar-track {
         background: transparent;
       }
+      .home-nav { position:sticky;left:0;z-index:4;flex-shrink:0;display:inline-flex;align-items:center;padding:5px 9px;border:1px solid #8e7956;border-radius:5px;background:#302b22;color:#ebd7af;text-decoration:none;white-space:nowrap; }
+      .home-nav:hover { background:#49402f; }
     </style>
   </head>
 
@@ -716,6 +718,7 @@
     <div id="app">
       <!-- ── Top bar ───────────────────────────────────────────────── -->
       <header class="topbar">
+        <a class="home-nav" href="/" title="返回 DesignBoard 主页">← 返回主页</a>
         <div class="brand"><span class="brand-mark">▚</span> MVMap</div>
         <input id="map-name" class="map-name" type="text" spellcheck="false" aria-label="地图名称" />
         <div class="topbar-group">
@@ -811,6 +814,7 @@
     <!-- ── Greybox overlay ─────────────────────────────────────────── -->
     <div id="detail" class="overlay" hidden>
       <div class="detail-bar">
+        <a class="home-nav" href="/" title="返回 DesignBoard 主页">← 返回主页</a>
         <button class="tb" id="detail-close">← 返回地图</button>
         <strong id="detail-title">房间</strong>
         <div class="detail-tools" id="detail-tools">
@@ -847,6 +851,7 @@
     <script src="sync.js"></script>
     <script>
       "use strict";
+      if(location.protocol==='file:')document.querySelectorAll('.home-nav').forEach(a=>a.href='https://evantra.cloud:4173/');
       (function () {
         /* ══════════════════════════════════════════════════════════════
            1 · Utilities

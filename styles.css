@@ -196,3 +196,5 @@ button .icon { flex-shrink: 0; }
   .empty-kicker { font-size: 8px; }
   .empty-state p { font-size: 10px; }
 }
+
+.home-nav { flex-shrink: 0; padding: 7px 12px; border: 1px solid #b9cbbd; border-radius: 5px; background: #edf3e9; color: #345b43; white-space: nowrap; }
