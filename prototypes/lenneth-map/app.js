@@ -189,9 +189,21 @@ function draw(g=ctx,w=width,h=height,c=cam,exporting=false){
    g.save();g.globalAlpha=preview&&!reachable.has(r.id)?.28:1;g.shadowColor='#0007';g.shadowBlur=selected?16:7;rounded(g,p.x,p.y,rw,rh,5);g.fillStyle=selected?'#263d54':'#1c2c3e';g.fill();g.shadowBlur=0;g.strokeStyle=preview&&reachable.has(r.id)?'#7ccdb5':selected?'#e4c98c':r.color;g.lineWidth=selected?2.2:1.1;g.stroke();
    g.save();g.beginPath();g.rect(p.x+2,p.y+2,Math.max(0,rw-4),Math.max(0,rh-4));g.clip();g.fillStyle=r.color+'33';g.fillRect(p.x,p.y+rh-8,rw,8);g.strokeStyle=r.color+'25';g.lineWidth=1;for(let j=1;j<r.w;j++){g.beginPath();g.moveTo(p.x+j*unit,p.y);g.lineTo(p.x+j*unit,p.y+rh);g.stroke();}
    const name=(doc.startRoomId===r.id?'⌂ ':'')+r.name;
-   text(g,name,p.x+rw/2,p.y+rh*.44,selected?'#f6e3b9':'#d8e5f3',Math.max(10,Math.min(13,12*c.zoom+.8)),'center');
-   if(rh>40)text(g,`${ROOM_TYPES[r.kind]} · Z${r.depth}`,p.x+rw/2,p.y+rh*.44+19,r.color,10,'center');
-   if(rh>65)text(g,r.objects.length?`${r.objects.length} 个室内对象`:'双击编辑室内',p.x+rw/2,p.y+rh-17,'#8298b1',9,'center');g.restore();
+   // Lay out a single centered text block; small cards omit secondary lines.
+   const titleSize=Math.max(10,Math.min(13,12*c.zoom+.8));
+   const lineCount=rh>=92&&rw>=110?3:rh>=50&&rw>=80?2:1;
+   const titleY=p.y+(rh-(lineCount-1)*18)/2+titleSize*.35;
+   const fitLabel=(value,size)=>{
+    g.font=`${size}px system-ui,"PingFang SC","Microsoft YaHei",sans-serif`;
+    const chars=Array.from(value),limit=Math.max(0,rw-18);
+    if(g.measureText(value).width<=limit)return value;
+    while(chars.length&&g.measureText(chars.join('')+'…').width>limit)chars.pop();
+    return chars.length?chars.join('')+'…':'';
+   };
+   if(rh>=22&&rw>=24)text(g,fitLabel(name,titleSize),p.x+rw/2,titleY,selected?'#f6e3b9':'#d8e5f3',titleSize,'center');
+   if(lineCount>=2)text(g,fitLabel(`${ROOM_TYPES[r.kind]} · Z${r.depth}`,10),p.x+rw/2,titleY+18,r.color,10,'center');
+   if(lineCount===3)text(g,fitLabel(r.objects.length?`${r.objects.length} 个室内对象`:'双击编辑室内',9),p.x+rw/2,titleY+36,'#8298b1',9,'center');
+   g.restore();
    if(selected){g.fillStyle='#e4c98c';g.fillRect(p.x+rw-7,p.y+rh-7,7,7);}
    for(const type of new Set(doc.links.filter(l=>l.from===r.id||l.to===r.id).map(l=>l.from===r.id?l.fromPort:l.toPort))){const q=screen(...Object.values(port(r,type)),c,w,h);g.fillStyle=['front','back'].includes(type)?'#c5a5e4':r.color;g.beginPath();g.arc(q.x,q.y,3.5,0,Math.PI*2);g.fill();if(['front','back'].includes(type)&&c.zoom>.5)text(g,type==='front'?'前':'后',q.x+7,q.y+3,'#c5a5e4',9);}
    if(linkSource===r.id){g.strokeStyle='#e4c98c';g.setLineDash([4,4]);g.strokeRect(p.x-5,p.y-5,rw+10,rh+10);g.setLineDash([]);}g.restore();
