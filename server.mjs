@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createDocument, parseDocument } from './src/model.js';
 import { boardsDirPath, createBoardStore, projectRoot } from './src/board-store.mjs';
+import { createMVMapStore } from './src/mvmap-store.mjs';
 import { createAuth, loadAuthConfig } from './src/auth.mjs';
 
 const MIME = {
@@ -17,7 +18,7 @@ const MIME = {
   '.ico': 'image/x-icon',
 };
 const MAX_BODY = 30 * 1024 * 1024;
-const PUBLIC_FILES = new Set(['index.html', 'editor.html', 'portal.css', 'styles.css', 'src/portal.js', 'src/model.js', 'src/clipboard.js', 'src/sync.js', 'src/board.js', 'src/board-ops.mjs', 'src/icons.js', 'src/io.js', 'src/viewport.js']);
+const PUBLIC_FILES = new Set(['index.html', 'editor.html', 'portal.css', 'styles.css', 'src/portal.js', 'src/model.js', 'src/clipboard.js', 'src/sync.js', 'src/board.js', 'src/board-ops.mjs', 'src/icons.js', 'src/io.js', 'src/viewport.js', 'prototypes/mvmap-zh/index.html', 'prototypes/mvmap-zh/manual.html', 'prototypes/mvmap-zh/sync.js']);
 
 function sendJson(res, status, body) {
   res.writeHead(status, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
@@ -85,6 +86,9 @@ async function serveStatic(req, res, root) {
     return;
   }
   if (pathname === '/') pathname = '/index.html';
+  if (pathname === '/mvmap' || pathname === '/mvmap/') pathname = '/prototypes/mvmap-zh/index.html';
+  if (pathname === '/mvmap/manual.html') pathname = '/prototypes/mvmap-zh/manual.html';
+  if (pathname === '/mvmap/sync.js') pathname = '/prototypes/mvmap-zh/sync.js';
   if (!PUBLIC_FILES.has(pathname.slice(1))) {
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('Not found');
     return;
@@ -104,6 +108,7 @@ export function createCanvasroomServer({ root = projectRoot, boardsDir, authConf
   const resolvedRoot = path.resolve(root);
   const store = createBoardStore(boardsDir ?? boardsDirPath());
   const auth = createAuth(authConfig, { secure: secureCookie, trustProxy });
+  const maps = createMVMapStore(path.join(store.dir, 'mvmap'));
   return http.createServer(async (req, res) => {
     try {
       let pathname;
@@ -135,8 +140,26 @@ export function createCanvasroomServer({ root = projectRoot, boardsDir, authConf
         return sendJson(res, 200, { loggedOut: true });
       }
       if (auth && !auth.user(req)) {
-        if (pathname === '/editor.html') { res.writeHead(302, { location: '/', 'cache-control': 'no-store' }).end(); return; }
+        if (pathname === '/editor.html' || pathname === '/mvmap' || pathname === '/mvmap/' || pathname === '/mvmap/index.html' || pathname === '/prototypes/mvmap-zh/index.html') { res.writeHead(302, { location: '/', 'cache-control': 'no-store' }).end(); return; }
         if (pathname.startsWith('/api/')) return sendJson(res, 401, { error: '请先登录' });
+      }
+      if (pathname === '/mvmap' || pathname === '/mvmap/index.html' || pathname === '/prototypes/mvmap-zh/index.html') { res.writeHead(302, { location: '/mvmap/' }).end(); return; }
+      if (pathname === '/api/mvmaps' && req.method === 'GET') return sendJson(res, 200, { maps: await maps.all() });
+      if (pathname.startsWith('/api/mvmaps/')) {
+        const id = pathname.slice('/api/mvmaps/'.length);
+        if (req.method === 'GET') {
+          const result = await maps.read(id);
+          return sendJson(res, result.doc ? 200 : 404, result);
+        }
+        if (req.method === 'PUT') {
+          const { doc, baseRevision } = await readJsonBody(req);
+          return sendJson(res, 200, await maps.put(id, doc, baseRevision));
+        }
+        if (req.method === 'DELETE') {
+          await maps.del(id, req.headers['if-match'] || null);
+          return sendJson(res, 200, { deleted: id });
+        }
+        return sendJson(res, 405, { error: 'Method not allowed' });
       }
       if (pathname === '/api/boards') return await handleCollection(req, res, store);
       if (pathname.startsWith('/api/boards/')) return await handleBoard(req, res, store, decodeURIComponent(pathname.slice('/api/boards/'.length)));

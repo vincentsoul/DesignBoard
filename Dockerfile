@@ -3,6 +3,7 @@ WORKDIR /app
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4173 CANVASROOM_BOARDS_DIR=/data/boards
 COPY --chown=node:node package.json server.mjs mcp-server.mjs index.html editor.html styles.css portal.css ./
 COPY --chown=node:node src ./src
+COPY --chown=node:node prototypes/mvmap-zh ./prototypes/mvmap-zh
 RUN mkdir -p /data/boards && chown -R node:node /data
 USER node
 EXPOSE 4173

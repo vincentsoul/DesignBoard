@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/model.test.mjs && node tests/sync.test.mjs && node tests/clipboard.test.mjs && node tests/auth.test.mjs && node tests/viewport.test.mjs",
+    "test": "node tests/model.test.mjs && node tests/sync.test.mjs && node tests/clipboard.test.mjs && node tests/auth.test.mjs && node tests/viewport.test.mjs && node tests/mvmap.test.mjs && node tests/mvmap-sync.test.mjs",
     "start": "node server.mjs",
     "mcp": "node mcp-server.mjs"
   }

@@ -160,3 +160,7 @@ npm test
 ```
 
 The tests cover the document model, board operations, the board file store, the sync API (including stale-write rejection), and the MCP server.
+
+## MVMap 地图编辑与 NAS 同步
+
+登录后可从首页进入 `/mvmap/` 使用中文地图编辑器。地图以独立 JSON 文件保存在现有数据卷的 `mvmap/` 子目录，支持自动保存、跨设备读取、刷新、版本冲突保护、本地备份恢复与删除回收站。现有 Docker 部署更新镜像即可启用，无需增加端口或数据库。详见 [MVMap NAS 部署说明](docs/mvmap-nas部署.md)。

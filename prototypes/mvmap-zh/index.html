@@ -65,6 +65,8 @@
       }
 
       .topbar {
+        overflow-x: auto;
+        scrollbar-width: thin;
         grid-column: 1 / 4;
         display: flex;
         align-items: center;
@@ -722,6 +724,7 @@
         </div>
         <div class="spacer"></div>
         <div class="topbar-group">
+          <button id="btn-backups" class="tb">本地备份</button><button id="btn-sync" class="tb" hidden>刷新 NAS</button><button id="btn-retry" class="tb" hidden>重试保存</button><button id="btn-copy" class="tb" hidden>另存副本</button>
           <button id="btn-maps" class="tb">地图库……</button>
           <button id="btn-new" class="tb">新建</button>
           <button id="btn-import" class="tb">导入</button>
@@ -840,6 +843,8 @@
     </div>
     <input type="file" id="file-input" accept="application/json,.json" hidden />
 
+    <div id="sync-notice" role="status" style="position:fixed;bottom:36px;left:240px;right:290px;background:#171b23;color:#f0c970;z-index:20;font-size:12px;pointer-events:none"></div>
+    <script src="sync.js"></script>
     <script>
       "use strict";
       (function () {
@@ -1082,7 +1087,7 @@
         /* ══════════════════════════════════════════════════════════════
            5 · Persistence — IndexedDB, falling back to localStorage
            ══════════════════════════════════════════════════════════════ */
-        const Store = (function () {
+        const LocalStore = (function () {
           const DB_NAME = "mvmap";
           const STORE = "maps";
           const LS_KEY = "mvmap:docs";
@@ -1130,17 +1135,15 @@
           const lsWrite = (o) => {
             try {
               localStorage.setItem(LS_KEY, JSON.stringify(o));
-            } catch (e) {}
+            } catch (e) { throw new Error("本地存储空间不足，请导出 JSON 备份"); }
           };
-          function tx(fn, def) {
-            return new Promise((res) => {
-              if (mode !== "idb" || !db) return res(fn(null));
-              try {
-                res(fn(db.transaction(STORE, "readwrite").objectStore(STORE)));
-              } catch (e) {
-                mode = "ls";
-                res(def);
-              }
+          function tx(fn) {
+            return new Promise((resolve, reject) => {
+              if (mode !== "idb" || !db) return reject(new Error("本地数据库不可用"));
+              const transaction = db.transaction(STORE, "readwrite");
+              transaction.oncomplete = () => resolve();
+              transaction.onerror = transaction.onabort = () => reject(transaction.error || new Error("本地保存失败"));
+              fn(transaction.objectStore(STORE));
             });
           }
           return {
@@ -1185,17 +1188,62 @@
           };
         })();
 
+        const Store = window.createMVMapNASStore ? window.createMVMapNASStore(LocalStore) : LocalStore;
+        let saveGeneration = 0;
+        let pendingSave = false;
+        window.addEventListener("beforeunload", e => {
+          if (pendingSave || Store.failed) { e.preventDefault(); e.returnValue = ""; }
+        });
+        $("#btn-backups").onclick = async () => {
+          try {
+            const docs = await LocalStore.all();
+            openModal(`<h2>本机浏览器备份</h2><p>点击恢复会另存为新地图，避免覆盖 NAS 文件。</p>${docs.map((d,i) => `<p><button class="btn" data-backup="${i}">${esc(d.name)} · ${new Date(d.updated).toLocaleString("zh-CN")}</button></p>`).join("") || "<p>暂无本地备份。</p>"}<button class="btn" data-close>关闭</button>`);
+            $("#modal-box").querySelectorAll("[data-backup]").forEach(button => {
+              button.onclick = () => {
+                const doc = JSON.parse(JSON.stringify(docs[+button.dataset.backup]));
+                doc.id = uid("map"); doc.name += "（恢复副本）";
+                loadDoc(doc); closeModal();
+              };
+            });
+          } catch(e) { alert(e.message); }
+        };
+        $("#btn-retry").onclick = () => scheduleSave();
+        $("#btn-copy").onclick = () => {
+          S.doc.id = uid("map"); S.doc.name += "（副本）";
+          $("#map-name").value = S.doc.name;
+          scheduleSave();
+        };
+        $("#btn-sync").onclick = async () => {
+          if ((pendingSave || Store.failed) && !confirm("有尚未同步的编辑。建议先导出 JSON。仍从 NAS 读取版本？本地副本不会自动合并。")) return;
+          try { await LocalStore.put(JSON.parse(JSON.stringify(S.doc))); } catch(e) { alert(e.message); return; }
+          clearTimeout(saveTimer); saveGeneration++; pendingSave = false;
+          await Store.flush();
+          try {
+            const all = await Store.all();
+            const doc = all.find(d => d.id === S.doc.id) || all[0];
+            if (doc) loadDoc(doc, true, true);
+            else Store.notice("NAS 暂无地图。当前地图保留在画布中，可点击重试保存。");
+          } catch(e) { Store.notice(e.message); }
+        };
         let saveTimer = null;
         function scheduleSave() {
-          setStatus("dirty");
+          setStatus("dirty"); pendingSave = true;
+          const generation = ++saveGeneration;
+          const target = S.doc;
           clearTimeout(saveTimer);
           saveTimer = setTimeout(async () => {
-            S.doc.updated = Date.now();
-            await Store.put(S.doc);
+            target.updated = Date.now();
             try {
-              localStorage.setItem("mvmap:last", S.doc.id);
-            } catch (e) {}
-            setStatus("saved");
+              await Store.put(target);
+              try { localStorage.setItem("mvmap:last", target.id); } catch(e) {}
+              if (generation === saveGeneration) { pendingSave = false; setStatus("saved"); }
+            } catch(e) {
+              if (generation === saveGeneration) {
+                pendingSave = false;
+                $("#save-status").textContent = "保存失败";
+                if (Store.notice && Store.mode !== "nas") Store.notice(e.message + "；请重试保存或导出 JSON。");
+              }
+            }
           }, 600);
         }
         function setStatus(kind) {
@@ -2955,7 +3003,16 @@
         /* ══════════════════════════════════════════════════════════════
            16 · Documents
            ══════════════════════════════════════════════════════════════ */
-        function loadDoc(d) {
+        async function loadDoc(d, fromNAS = false, discardLocal = false) {
+          if (!discardLocal && (pendingSave || Store.failed)) {
+            clearTimeout(saveTimer);
+            try { await Store.put(JSON.parse(JSON.stringify(S.doc))); }
+            catch(e) {
+              if (!confirm("当前地图未同步到 NAS，本机备份可从「本地备份」恢复。仍切换地图？")) return;
+            }
+          }
+          clearTimeout(saveTimer); saveGeneration++; pendingSave = false;
+          if (Store.accept) Store.accept(d);
           S.doc = migrate(d);
           S.sel = null;
           S.activeRoomId = null;
@@ -2964,7 +3021,8 @@
           redoStack.length = 0;
           closeDetail();
           $("#map-name").value = S.doc.name;
-          commit();
+          commit(fromNAS);
+          if (fromNAS) setStatus("saved");
           fitWorld();
         }
         $("#btn-new").onclick = () => {
@@ -3026,7 +3084,9 @@
         };
 
         $("#btn-maps").onclick = async () => {
-          const all = (await Store.all()).sort((a, b) => (b.updated || 0) - (a.updated || 0));
+          let entries;
+          try { entries = await Store.all(); } catch(e) { alert(e.message); return; }
+          const all = entries.sort((a, b) => (b.updated || 0) - (a.updated || 0));
           const rows = all.length
             ? all
                 .map((d) => {
@@ -3042,13 +3102,13 @@
                 .join("")
             : `<p>暂无已保存的地图。</p>`;
           openModal(`<h2>地图库</h2><p class="sub">存储方式：${
-            Store.mode === "idb" ? "IndexedDB" : "localStorage"
+            Store.mode === "nas" ? "NAS 文件存储" : Store.mode === "idb" ? "IndexedDB" : "localStorage"
           }.</p>${rows}<div class="close-row"><button class="btn primary" data-close style="flex:0 0 auto;padding:6px 16px">关闭</button></div>`);
 
           $("#modal-box").querySelectorAll("[data-open]").forEach((b) => {
             b.onclick = () => {
               const d = all.find((x) => x.id === b.dataset.open);
-              if (d) { loadDoc(d); closeModal(); }
+              if (d) { loadDoc(d, Store.mode === "nas"); closeModal(); }
             };
           });
           $("#modal-box").querySelectorAll("[data-delmap]").forEach((b) => {
@@ -3056,7 +3116,10 @@
               const id = b.dataset.delmap;
               const d = all.find((x) => x.id === id);
               if (!confirm(`永久删除“${d ? d.name : "此地图"}”？`)) return;
-              await Store.del(id);
+              try {
+                if (id === S.doc.id && pendingSave) { clearTimeout(saveTimer); await Store.put(JSON.parse(JSON.stringify(S.doc))); pendingSave = false; saveGeneration++; }
+                await Store.del(id);
+              } catch(e) { alert(e.message); return; }
               closeModal();
               if (id === S.doc.id) loadDoc(newDoc());
             };
@@ -3068,16 +3131,15 @@
            ══════════════════════════════════════════════════════════════ */
         (async function boot() {
           await Store.init();
-          if (Store.mode !== "idb") $("#file-note").classList.add("show");
+          if (Store.mode === "ls") $("#file-note").classList.add("show");
 
           let doc = null;
           try {
             const lastId = localStorage.getItem("mvmap:last");
-            if (lastId) {
-              const all = await Store.all();
-              doc = all.find((d) => d.id === lastId) || null;
-            }
-          } catch (e) {}
+            const all = await Store.all();
+            doc = all.find((d) => d.id === lastId) || (Store.mode === "nas" ? all[0] : null) || null;
+            if (doc && Store.accept) Store.accept(doc);
+          } catch (e) { if (Store.notice) Store.notice("无法读取 NAS：" + e.message); }
 
           S.doc = migrate(doc || newDoc());
           S.activeAreaId = S.doc.areas[0].id;

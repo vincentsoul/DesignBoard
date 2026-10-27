@@ -2,6 +2,8 @@
 
 调研日期：2026-10-27。对象：[原站](https://titaniumcladstudios.github.io/MVMap/)、[官方源码与 README](https://github.com/TitaniumCladStudios/MVMap)。结论依据为当日线上 HTML、官方文档和源码；不是对所有浏览器兼容性的保证。当前中文版位于 `prototypes/mvmap-zh/`，保留 MIT 许可，来源版本记录见 `UPSTREAM.json`。
 
+> 后续更新：已新增 NAS 后端。通过仓库 Node 服务的 `/mvmap/` 入口可使用自动保存和跨设备读取，见 [NAS 部署说明](mvmap-nas部署.md)。本文关于“仅浏览器存储”和“不支持同步”的描述针对原站及静态离线模式。
+
 ## 1. 这个网站能做什么
 
 MVMap 是面向银河恶魔城（Metroidvania）游戏的二维地图规划工具。它把世界地图、房间内部布局、能力解锁关系放在同一个编辑器里，适合关卡策划在正式搭建引擎场景前设计探索路线、回访路径和能力门槛。
