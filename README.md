@@ -167,6 +167,6 @@ The tests cover the document model, board operations, the board file store, the 
 
 ## LennethMap 横版纵深迷宫编辑器
 
-首页新增 `/lenneth-map/`，用于设计《北欧女神：蕾娜斯》式横版房间、前后景通路和机关条件。支持显式六向出口、AND/OR 条件、单向落下、4× 室内灰盒、可达性预览、JSON/PNG 和 NAS 同步。内置地图为原创结构示例，不是原作关卡复刻。章节和难度仅为元数据；不模拟角色物理和旋转机关。
+首页新增 `/lenneth-map/`，用于设计《北欧女神：蕾娜斯》式横版房间、前后景通路和机关条件。支持显式六向出口、AND/OR 条件、单向落下、4× 室内灰盒、可旋转 3D 空间预览、可达性预览、JSON/PNG 和 NAS 同步。内置地图为原创结构示例，不是原作关卡复刻。章节和难度仅为元数据；不模拟角色物理和旋转机关。
 
 [调研与完整说明](prototypes/lenneth-map/manual.html)。数据存放在现有数据卷的 `lennethmap/` 子目录，复用既有登录和并发冲突保护，与白板及 MVMap 分开。

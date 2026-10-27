@@ -1,7 +1,10 @@
 import {uid,clone,newRoom,newProject,sampleProject,validateProject,PORTS,LINK_TYPES,ROOM_TYPES,OBJECT_TYPES,removeRoom,removeFlag,reachableRooms,linkPassable,audit} from './model.js';
+import {Preview3D,clampPitch} from './preview3d.js';
 import {ProjectStorage} from './storage.js';
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store=new ProjectStorage();
+const orbit=new Preview3D();
+let view3D=false;
 let doc=sampleProject(),selection=null,detailId=null,tool='select',objectType='platform',depth=null,activeDepth=0,linkSource=null,preview=false;
 let cam={x:0,y:0,zoom:1},drag=null,space=false,dirty=false,saveError=false,timer=null,generation=0;
 const undoStack=[],redoStack=[],enabled=new Set();
@@ -70,29 +73,35 @@ function renderInspector(){
 function render(){
  $('#project-name').value=doc.name;$('#storage-mode').textContent=store.remote?'NAS · 已连接服务':'离线 · 本机存储';
  $('#refresh').hidden=!store.remote;$('#retry').hidden=!store.remote;
- $('#undo').disabled=!undoStack.length;$('#redo').disabled=!redoStack.length;
+ $('#undo').disabled=view3D||!undoStack.length;$('#redo').disabled=view3D||!redoStack.length;$('#project-name').disabled=view3D;
  $('#room-count').textContent=doc.rooms.length;
  const layers=[...new Set([activeDepth,...doc.rooms.map(r=>r.depth)])].sort((a,b)=>a-b);
  $('#depth-list').innerHTML=`<button data-depth="all" class="${depth===null?'on':''}">全部</button>`+layers.map(z=>`<button data-depth="${z}" class="${depth===z?'on':''}">${z<0?'前景':z>0?'后景':'主景'} Z${z}</button>`).join('');
  $('#depth-list').querySelectorAll('button').forEach(b=>b.onclick=()=>{depth=b.dataset.depth==='all'?null:Number(b.dataset.depth);if(depth!==null)activeDepth=depth;render();});
  const q=$('#room-search').value.toLowerCase();
  $('#room-list').innerHTML=doc.rooms.filter(r=>r.name.toLowerCase().includes(q)).map(r=>`<button class="room-row ${selection?.id===r.id?'on':''}" data-room="${r.id}" title="${esc(r.name)}"><span class="swatch" style="background:${r.color}"></span><span>${doc.startRoomId===r.id?'⌂ ':''}${esc(r.name)}</span><small>Z${r.depth}</small></button>`).join('')||'<p class="muted small">暂无房间。按 R 拖动绘制。</p>';
- $('#room-list').querySelectorAll('[data-room]').forEach(b=>b.onclick=()=>{if(tool==='link'&&!detailId){connectTo(room(b.dataset.room));return;}selection={type:'room',id:b.dataset.room};if(detailId)openDetail(selection.id);else{depth=null;const r=room(selection.id);cam.x=(r.x+r.w/2)*GRID;cam.y=(r.y+r.h/2)*GRID;render();}});
+ $('#room-list').querySelectorAll('[data-room]').forEach(b=>b.onclick=()=>{if(tool==='link'&&!detailId&&!view3D){connectTo(room(b.dataset.room));return;}selection={type:'room',id:b.dataset.room};if(detailId)openDetail(selection.id);else{depth=null;const r=room(selection.id);cam.x=(r.x+r.w/2)*GRID;cam.y=(r.y+r.h/2)*GRID;render();}});
  $('#flag-list').innerHTML=doc.flags.map(f=>`<div class="flag"><input id="flag-${f.id}" data-flag="${f.id}" type="checkbox" ${enabled.has(f.id)?'checked':''}><label for="flag-${f.id}">${esc(f.name)}</label><button data-edit-flag="${f.id}" title="编辑条件">⋯</button></div>`).join('')||'<p class="muted small">暂无条件。可添加钥匙、机关或事件。</p>';
  $('#flag-list').querySelectorAll('[data-flag]').forEach(el=>el.onchange=()=>{el.checked?enabled.add(el.dataset.flag):enabled.delete(el.dataset.flag);draw();});
- $('#flag-list').querySelectorAll('[data-edit-flag]').forEach(b=>b.onclick=()=>editFlag(b.dataset.editFlag));
+ $('#flag-list').querySelectorAll('[data-edit-flag]').forEach(b=>{b.disabled=view3D;b.onclick=()=>editFlag(b.dataset.editFlag);});
  $('#tools').querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('on',tool===b.dataset.tool));
+ $('#view-3d').classList.toggle('on',view3D);$('#view-3d').textContent=view3D?'↖ 返回二维':'◇ 3D 旋转预览';
+ $('#preview-3d-controls').hidden=!view3D;
  $('#preview').classList.toggle('on',preview);$('#back').hidden=!detailId;
- $('#view-label').textContent=detailId?'室内灰盒':'迷宫总览';$('#view-title').textContent=detailId?(room(detailId)?.name||'房间'):depth===null?'所有景深':`景深 Z${depth}`;
+ $('#view-label').textContent=view3D?'3D 空间预览':detailId?'室内灰盒':'迷宫总览';$('#view-title').textContent=detailId?(room(detailId)?.name||'房间'):depth===null?'所有景深':`景深 Z${depth}`;
  $('#detail-palette').hidden=!detailId;
  $('#detail-palette').innerHTML=Object.entries(OBJECT_TYPES).map(([type,v])=>`<button data-object-type="${type}" class="${type===objectType?'on':''}">${v.glyph} ${v.name}</button>`).join('');
  $('#detail-palette').querySelectorAll('button').forEach(b=>b.onclick=()=>{objectType=b.dataset.objectType;tool='room';render();});
  $('#tools [data-tool="room"]').innerHTML=detailId?'<b>▭</b>方框 <kbd>R</kbd>':'<b>▭</b>房间 <kbd>R</kbd>';
- $('#tools [data-tool="link"]').disabled=!!detailId;
- $('.canvas-caption').hidden=!!detailId;$('#empty').hidden=!!doc.rooms.length;
+ $('#tools').querySelectorAll('[data-tool]').forEach(b=>b.disabled=view3D);
+ $('#tools [data-tool="link"]').disabled=!!detailId||view3D;
+ $('#add-room').disabled=view3D;$('#add-depth').disabled=view3D;$('#add-flag').disabled=view3D;
+ $('.canvas-caption').hidden=!!detailId||view3D;$('#empty').hidden=!!doc.rooms.length;
  $('#summary').textContent=`${doc.rooms.length} 个房间 · ${doc.links.length} 条连接 · ${doc.flags.length} 个条件`;
  const hints={select:detailId?'点击选择对象 · 拖动移动 / 右下角缩放 · Esc 返回总览':'点击选择 · 拖动移动 / 右下角缩放 · 双击编辑室内',room:detailId?'拖出室内方框 · 使用上方类型工具条切换':'拖出房间矩形 · 当前新增景深 Z'+activeDepth,link:linkSource?'请选择目标房间（可在左侧切换景深）':'依次点击起点和终点房间 · 可跨景深连接',erase:'点击删除对象 · Ctrl/Cmd+Z 撤销',pan:'拖动画布平移 · 滚轮缩放 · F 适应'};
- $('#hint').textContent=hints[tool];renderInspector();draw();
+ $('#hint').textContent=view3D?'拖动旋转 · 右键 / 中键 / Shift 拖动平移 · 滚轮缩放 · 双击房间进入二维':hints[tool];renderInspector();
+ if(view3D){$('#inspector').querySelectorAll('input,textarea,select,button').forEach(el=>el.disabled=el.id!=='open-detail');}
+ draw();
 }
 function editFlag(id){
  const flag=doc.flags.find(f=>f.id===id);
@@ -139,20 +148,32 @@ const filename=()=>doc.name.replace(/[<>:"/\\|?*\u0000-\u001f]+/g,'-').slice(0,1
 $('#export').onclick=()=>download(new Blob([JSON.stringify(doc,null,2)],{type:'application/json'}),filename()+'.lenneth.json');
 $('#import').onclick=()=>$('#file-input').click();
 $('#file-input').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;if(file.size>30*1024*1024){notify('文件超过 30 MiB。');return;}try{const value=validateProject(JSON.parse(await file.text()));if(!(await beforeSwitch()))return;value.id=uid('lenneth');setDocument({doc:value,revision:null});dirty=true;generation++;schedule();}catch(e){notify('导入失败：'+e.message);}};
-function openDetail(id){if(!room(id))return;detailId=id;selection={type:'room',id};linkSource=null;tool='select';render();fit();}
+function openDetail(id){if(!room(id))return;view3D=false;detailId=id;selection={type:'room',id};linkSource=null;tool='select';render();fit();}
 $('#back').onclick=()=>{detailId=null;selection=null;tool='select';render();fit();};
 const screen=(x,y,c=cam,w=width,h=height)=>({x:(x*GRID-c.x)*c.zoom+w/2,y:(y*GRID-c.y)*c.zoom+h/2});
 const world=(p)=>({x:((p.x-width/2)/cam.zoom+cam.x)/GRID,y:((p.y-height/2)/cam.zoom+cam.y)/GRID});
 const pos=e=>{const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};};
 function bounds(){if(detailId){const r=room(detailId);return{x:0,y:0,w:r.w*4,h:r.h*4};}const rooms=visibleRooms();if(!rooms.length)return{x:-10,y:-6,w:20,h:12};const x=Math.min(...rooms.map(r=>r.x)),y=Math.min(...rooms.map(r=>r.y));return{x,y,w:Math.max(...rooms.map(r=>r.x+r.w))-x,h:Math.max(...rooms.map(r=>r.y+r.h))-y};}
-function fit(){const b=bounds();cam.x=(b.x+b.w/2)*GRID;cam.y=(b.y+b.h/2)*GRID;cam.zoom=Math.max(.12,Math.min(2,(width-100)/((b.w+4)*GRID),(height-(detailId?190:150))/((b.h+4)*GRID)));draw();}
+function fit(){if(view3D){orbit.fit(visibleRooms(),width,height);draw();return;}const b=bounds();cam.x=(b.x+b.w/2)*GRID;cam.y=(b.y+b.h/2)*GRID;cam.zoom=Math.max(.12,Math.min(2,(width-100)/((b.w+4)*GRID),(height-(detailId?190:150))/((b.h+4)*GRID)));draw();}
 $('#fit').onclick=fit;
+function set3D(value){
+ if(drag?.backup)doc=JSON.parse(drag.backup);
+ if(detailId&&value)selection={type:'room',id:detailId};
+ drag=null;view3D=value;detailId=null;linkSource=null;tool='select';render();fit();
+}
+$('#view-3d').onclick=()=>set3D(!view3D);
+$('#preview-3d-controls').querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>{orbit.preset(button.dataset.view,visibleRooms(),width,height);draw();});
+$('#orbit-reset').onclick=()=>{orbit.preset('iso',visibleRooms(),width,height);draw();};
+$('#depth-spacing').oninput=e=>{orbit.gap=Number(e.target.value);$('#depth-spacing-value').textContent=orbit.gap;fit();};
+for(const [id,key]of [['orbit-labels','labels'],['orbit-guides','guides'],['orbit-interiors','interiors']])$('#'+id).onchange=e=>{orbit[key]=e.target.checked;draw();};
+
 function port(r,p){return p==='left'?{x:r.x,y:r.y+r.h/2}:p==='right'?{x:r.x+r.w,y:r.y+r.h/2}:p==='up'?{x:r.x+r.w/2,y:r.y}:p==='down'?{x:r.x+r.w/2,y:r.y+r.h}:p==='front'?{x:r.x+r.w*.35,y:r.y+r.h}:{x:r.x+r.w*.65,y:r.y};}
 function curve(l,c=cam,w=width,h=height){const a=screen(...Object.values(port(room(l.from),l.fromPort)),c,w,h),b=screen(...Object.values(port(room(l.to),l.toPort)),c,w,h);const dx=Math.max(30,Math.abs(b.x-a.x)*.45),dy=Math.max(30,Math.abs(b.y-a.y)*.45);const control=(p,port,t)=>port==='left'?{x:p.x-dx,y:p.y}:port==='right'?{x:p.x+dx,y:p.y}:['up','back'].includes(port)?{x:p.x,y:p.y-dy}:{x:p.x,y:p.y+dy};return[a,control(a,l.fromPort),control(b,l.toPort),b];}
 const bez=(points,t)=>{const[a,b,c,d]=points,u=1-t;return{x:u*u*u*a.x+3*u*u*t*b.x+3*u*t*t*c.x+t*t*t*d.x,y:u*u*u*a.y+3*u*u*t*b.y+3*u*t*t*c.y+t*t*t*d.y};};
 function rounded(g,x,y,w,h,r=6){g.beginPath();g.roundRect(x,y,w,h,r);}
 function text(g,str,x,y,color,size=12,align='left'){g.fillStyle=color;g.font=`${size}px system-ui,"PingFang SC","Microsoft YaHei",sans-serif`;g.textAlign=align;g.fillText(str,x,y);}
 function draw(g=ctx,w=width,h=height,c=cam,exporting=false){
+ if(view3D){orbit.render(g,w,h,doc,visibleRooms(),{selection,preview,enabled,exporting});if(!exporting)$('#hud').textContent=`3D · ${Math.round(orbit.camera.yaw*180/Math.PI)%360}° / ${Math.round(orbit.camera.pitch*180/Math.PI)}°`;return;}
  if(!width||!height)return;g.clearRect(0,0,w,h);if(exporting){g.fillStyle='#111923';g.fillRect(0,0,w,h);}
  const unit=GRID*c.zoom;
  if(!exporting&&unit>=5){const start=screen(0,0,c,w,h);g.lineWidth=1;for(let x=((start.x%unit)+unit)%unit;x<w;x+=unit){g.strokeStyle='#7890b011';g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke();}for(let y=((start.y%unit)+unit)%unit;y<h;y+=unit){g.strokeStyle='#7890b011';g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke();}}
@@ -200,6 +221,10 @@ function connectTo(r){
  mutate(()=>{const l={id:uid('link'),from:a.id,to:r.id,fromPort,toPort,type,oneWay:false,requires:[],logic:'all',notes:''};doc.links.push(l);selection={type:'link',id:l.id};linkSource=null;});
 }
 canvas.addEventListener('pointerdown',e=>{
+ if(view3D){
+  if(![0,1,2].includes(e.button))return;canvas.focus();canvas.setPointerCapture(e.pointerId);
+  drag={kind:'orbit',p:pos(e),camera:{...orbit.camera},pan:e.button!==0||e.shiftKey||space,moved:false};return;
+ }
  if(e.button!==0&&e.button!==1)return;canvas.focus();canvas.setPointerCapture(e.pointerId);const p=pos(e),a=world(p);
  if(e.button===1||space||tool==='pan'){drag={kind:'pan',p,cam:{...cam}};return;}
  if(tool==='link'&&!detailId){const r=hitRoom(p);if(r)connectTo(r);else{const l=hitLink(p);if(l){selection={type:'link',id:l.id};render();}}return;}
@@ -214,7 +239,9 @@ canvas.addEventListener('pointerdown',e=>{
  render();
 });
 canvas.addEventListener('pointermove',e=>{
- if(!drag)return;const p=pos(e),a=world(p);
+ if(!drag)return;const p=pos(e);
+ if(drag.kind==='orbit'){const dx=p.x-drag.p.x,dy=p.y-drag.p.y;drag.moved=drag.moved||Math.hypot(dx,dy)>4;if(drag.pan){orbit.camera.panX=drag.camera.panX+dx;orbit.camera.panY=drag.camera.panY+dy;}else{orbit.camera.yaw=drag.camera.yaw+dx*.008;orbit.camera.pitch=clampPitch(drag.camera.pitch+dy*.008);}draw();return;}
+ const a=world(p);
  if(drag.kind==='pan'){cam.x=drag.cam.x-(p.x-drag.p.x)/cam.zoom;cam.y=drag.cam.y-(p.y-drag.p.y)/cam.zoom;draw();return;}
  if(drag.kind==='create'){
   let x=Math.ceil(a.x),y=Math.ceil(a.y);if(detailId){const r=room(detailId);x=Math.max(0,Math.min(r.w*4,x));y=Math.max(0,Math.min(r.h*4,y));}drag.b={x,y};draw();return;
@@ -236,14 +263,23 @@ function endDrag(){
   mutate(()=>{if(detailId){const r=room(detailId);const o={id:uid('object'),type:objectType,x,y,w:Math.min(w,r.w*4-x),h:Math.min(h,r.h*4-y),label:'',flagId:null};if(o.w>0&&o.h>0){r.objects.push(o);selection={type:'object',id:o.id};}}else{const r={...newRoom(doc.rooms.length+1,activeDepth,x,y),w:Math.min(128,w),h:Math.min(64,h)};doc.rooms.push(r);selection={type:'room',id:r.id};if(!doc.startRoomId)doc.startRoomId=r.id;}});
  }else if(d.backup&&JSON.stringify(doc)!==d.backup){undoStack.push(d.backup);if(undoStack.length>100)undoStack.shift();redoStack.length=0;changed();}else render();
 }
-canvas.addEventListener('pointerup',endDrag);
+canvas.addEventListener('pointerup',e=>{if(drag?.kind==='orbit'){const d=drag;drag=null;if(!d.moved&&!d.pan){const id=orbit.pick(pos(e));selection=id?{type:'room',id}:null;render();}return;}endDrag();});
+canvas.addEventListener('contextmenu',e=>{if(view3D)e.preventDefault();});
 canvas.addEventListener('pointercancel',()=>{if(drag?.backup)doc=JSON.parse(drag.backup);drag=null;render();});
-canvas.addEventListener('dblclick',e=>{if(detailId||tool!=='select')return;const r=hitRoom(pos(e));if(r)openDetail(r.id);});
-canvas.addEventListener('wheel',e=>{e.preventDefault();const p=pos(e),a=world(p);cam.zoom=Math.max(.1,Math.min(5,cam.zoom*Math.exp(-Math.max(-120,Math.min(120,e.deltaY))*.002)));cam.x=a.x*GRID-(p.x-width/2)/cam.zoom;cam.y=a.y*GRID-(p.y-height/2)/cam.zoom;draw();},{passive:false});
+canvas.addEventListener('dblclick',e=>{if(view3D){const id=orbit.pick(pos(e));if(id)openDetail(id);return;}if(detailId||tool!=='select')return;const r=hitRoom(pos(e));if(r)openDetail(r.id);});
+canvas.addEventListener('wheel',e=>{e.preventDefault();if(view3D){orbit.camera.zoom=Math.max(.15,Math.min(8,orbit.camera.zoom*Math.exp(-Math.max(-120,Math.min(120,e.deltaY))*.002)));draw();return;}const p=pos(e),a=world(p);cam.zoom=Math.max(.1,Math.min(5,cam.zoom*Math.exp(-Math.max(-120,Math.min(120,e.deltaY))*.002)));cam.x=a.x*GRID-(p.x-width/2)/cam.zoom;cam.y=a.y*GRID-(p.y-height/2)/cam.zoom;draw();},{passive:false});
 window.addEventListener('keydown',e=>{
  if($('#dialog').open)return;
  if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;
  const key=e.key.toLowerCase(),mod=e.ctrlKey||e.metaKey;
+ if(!mod&&key==='3'){set3D(!view3D);return;}
+ if(view3D){
+  if(mod&&key==='s'){e.preventDefault();$('#export').click();return;}
+  if(key==='escape'){set3D(false);return;}if(key==='f'){fit();return;}
+  if(key===' '){e.preventDefault();space=true;return;}
+  const steps={arrowleft:[-.12,0],arrowright:[.12,0],arrowup:[0,-.1],arrowdown:[0,.1]};
+  if(steps[key]){e.preventDefault();orbit.camera.yaw+=steps[key][0];orbit.camera.pitch=clampPitch(orbit.camera.pitch+steps[key][1]);draw();}return;
+ }
  if(mod&&key==='z'){e.preventDefault();undo(e.shiftKey);return;}if(mod&&key==='y'){e.preventDefault();undo(true);return;}if(mod&&key==='s'){e.preventDefault();$('#export').click();return;}if(mod)return;
  if(key===' '){e.preventDefault();space=true;return;}
  if(key==='escape'){if(drag){if(drag.backup)doc=JSON.parse(drag.backup);drag=null;}else if(linkSource)linkSource=null;else if(selection?.type==='object')selection=null;else if(detailId){$('#back').click();return;}else selection=null;render();return;}
@@ -254,6 +290,7 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('keyup',e=>{if(e.key===' ')space=false;});window.addEventListener('blur',()=>space=false);
 window.addEventListener('beforeunload',e=>{if(dirty||saveError||drag?.backup){e.preventDefault();e.returnValue='';}});
 $('#png').onclick=()=>{
+ if(view3D){const out=document.createElement('canvas');out.width=Math.round(width*2);out.height=Math.round(height*2);const g=out.getContext('2d');g.scale(2,2);orbit.render(g,width,height,doc,visibleRooms(),{selection,preview,enabled,exporting:true});out.toBlob(blob=>{if(blob)download(blob,filename()+'-3D预览.png');else notify('PNG 生成失败。');});return;}
  const b=bounds(),out=document.createElement('canvas');const margin=detailId?2:4;
  const z=Math.min(2,6000/((b.w+margin)*GRID),6000/((b.h+margin)*GRID));out.width=Math.ceil((b.w+margin)*GRID*z);out.height=Math.ceil((b.h+margin)*GRID*z);
  const c={x:(b.x+b.w/2)*GRID,y:(b.y+b.h/2)*GRID,zoom:z};draw(out.getContext('2d'),out.width,out.height,c,true);
