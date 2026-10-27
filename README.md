@@ -164,3 +164,9 @@ The tests cover the document model, board operations, the board file store, the 
 ## MVMap 地图编辑与 NAS 同步
 
 登录后可从首页进入 `/mvmap/` 使用中文地图编辑器。地图以独立 JSON 文件保存在现有数据卷的 `mvmap/` 子目录，支持自动保存、跨设备读取、刷新、版本冲突保护、本地备份恢复与删除回收站。现有 Docker 部署更新镜像即可启用，无需增加端口或数据库。详见 [MVMap NAS 部署说明](docs/mvmap-nas部署.md)。
+
+## LennethMap 横版纵深迷宫编辑器
+
+首页新增 `/lenneth-map/`，用于设计《北欧女神：蕾娜斯》式横版房间、前后景通路和机关条件。支持显式六向出口、AND/OR 条件、单向落下、4× 室内灰盒、可达性预览、JSON/PNG 和 NAS 同步。内置地图为原创结构示例，不是原作关卡复刻。章节和难度仅为元数据；不模拟角色物理和旋转机关。
+
+[调研与完整说明](prototypes/lenneth-map/manual.html)。数据存放在现有数据卷的 `lennethmap/` 子目录，复用既有登录和并发冲突保护，与白板及 MVMap 分开。

@@ -38,7 +38,7 @@ export function validateMap(doc, id = doc?.id) {
 const revision = text => createHash('sha256').update(text).digest('hex');
 
 // One process owns the data directory. Per-map queues make revision checks and writes atomic.
-export function createMVMapStore(dir) {
+export function createMVMapStore(dir, { validate = validateMap } = {}) {
   const queues = new Map();
   function file(id) {
     if (!idPattern.test(id || '')) throw fail('地图 ID 无效');
@@ -47,7 +47,7 @@ export function createMVMapStore(dir) {
   async function read(id) {
     try {
       const text = await readFile(file(id), 'utf8');
-      return { doc: validateMap(JSON.parse(text), id), revision: revision(text) };
+      return { doc: validate(JSON.parse(text), id), revision: revision(text) };
     } catch (e) { if (e.code === 'ENOENT') return { doc: null, revision: null }; throw e; }
   }
   function exclusive(id, fn) {
@@ -68,7 +68,7 @@ export function createMVMapStore(dir) {
       return result.sort((a,b) => (b.doc.updated || 0) - (a.doc.updated || 0));
     },
     put(id, doc, baseRevision) {
-      validateMap(doc, id);
+      validate(doc, id);
       return exclusive(id, async () => {
         const old = await read(id);
         if (baseRevision !== old.revision) throw fail('此地图已在其他设备修改，请刷新或另存副本。', 409);

@@ -1,0 +1,32 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LennethMap 使用说明与地图调研</title><style>body{background:#111923;color:#d7e2ef;font:16px/1.9 system-ui,"PingFang SC",sans-serif;margin:0}main{max-width:970px;margin:auto;padding:40px 30px}h1{font-size:32px;color:#ead4ab;line-height:1.4}h2{font-size:21px;margin-top:40px;border-bottom:1px solid #364558;padding-bottom:10px}h3{color:#d9b777}a{color:#9ccbf1}code{background:#253448;padding:2px 6px;border-radius:3px}table{width:100%;border-collapse:collapse;font-size:14px}td,th{border:1px solid #364558;padding:10px;text-align:left}th{background:#202d3e}blockquote{border-left:3px solid #d9b777;padding:8px 20px;background:#1d2836;margin:24px 0}button{padding:8px 16px;cursor:pointer}.lead{color:#91a7bd}.nav{display:flex;justify-content:space-between;align-items:center}.figure{background:#1b2939;padding:20px;border-radius:8px;font:14px/2 monospace;white-space:pre-wrap}@media print{body{background:white;color:#111}main{padding:0}.nav{display:none}h1,h3{color:#222}th,blockquote,code,.figure{background:#eee;color:#111}a{color:#111}h2{break-after:avoid}tr{break-inside:avoid}}</style></head><body><main>
+<div class="nav"><a href="index.html">← 返回编辑器</a><button onclick="window.print()">打印 / 另存为 PDF</button></div>
+<p class="lead">DesignBoard / 地图研究与设计工具 · 2026-10-27</p><h1>LennethMap<br>横版纵深迷宫编辑器</h1><p class="lead">借鉴《北欧女神：蕾娜斯》的探索结构，保留 MVMap 的“工具—画布—属性”工作方式。</p>
+<blockquote>这是独立制作的关卡设计工具，不是官方编辑器。内置“苍霜遗迹”为原创教学示例，不是原作任何一张地图的复刻。不读取游戏 ROM、存档或游戏资源。</blockquote>
+<h2>1. 地图结构调研</h2>
+<p>官方 PSP 游戏说明书区分世界地图与地点内部的横版探索。横版地点除了左右行走，还能从特定入口进入前景或后景。由此可将迷宫设计抽象为<strong>带景深标签、明确出口和机关条件的房间图</strong>，而不是只靠画布上两个房间相邻来判断连通。</p>
+<p>室内路线还涉及水晶造阶、冻结敌人、推拉或投掷物体。它们影响房间内的路径设计，适合在室内灰盒中单独标注。前后景切换与楼层高低是两个维度：本工具用 <code>Z</code> 表示景深，用画布的 <code>Y</code> 表示楼层排版。Z 数字越大越靠后，这是编辑器约定，并非游戏中可提取的官方坐标。</p>
+<p>上述基础结构依据 <a href="https://manuals.plus/m/673fa72166b67553869be93a206fe794005d1d92bea15ae5bd4695dc4dc0da66">PSP 游戏说明书，第 13–17 页</a>（第三方镜像保存的原始说明书）。复杂地图可另参阅 <a href="https://valkyrieprofile.fandom.com/wiki/Clockwork_Mansion">Clockwork Mansion 资料</a>与 <a href="https://valkyrieprofile.fandom.com/wiki/Seraphic_Gate">Seraphic Gate 资料</a>。旋转或传送机关可有额外状态，本工具只提供显式连线和条件，不模拟原作全部特殊机关。</p>
+<table><thead><tr><th>维度</th><th>MVMap</th><th>LennethMap</th></tr></thead><tbody>
+<tr><td>房间形状</td><td>任意世界格集合</td><td>可调整长宽的横版房间矩形；内部另绘灰盒</td></tr>
+<tr><td>房间连接</td><td>在相邻格边放门</td><td>显式指定两个房间及各自出口，可跨排版距离连接</td></tr>
+<tr><td>景深</td><td>同一平面</td><td>前景 / 主景 / 后景分层，与楼层分开</td></tr>
+<tr><td>条件</td><td>锁与钥匙关系</td><td>机关或物品条件，支持 AND / OR、单向通路</td></tr>
+<tr><td>室内</td><td>通用类型灰盒</td><td>4× 子网格，增加水晶点、冻结敌人、宝箱、机关、推拉物</td></tr>
+<tr><td>检查</td><td>未配置钥匙警告</td><td>当前条件可达性，以及孤立房间、错误景深和无获取点条件检查</td></tr>
+</tbody></table>
+<h2>2. 界面与基本操作</h2><p>顶栏管理工程、地图库、撤销重做和导入导出；左栏管理工具、景深、房间和预览条件；中间是画布；右栏编辑所选房间、连接或室内对象。未选择对象时，右侧显示章节、难度和工程说明。</p>
+<ol><li>按 <code>R</code> 在画布拖出房间；也可点击房间列表的 <code>＋</code>。空地图的第一个房间自动成为起点。</li><li>按 <code>V</code> 选择并拖动房间，拖右下角小方块调整宽高。在右栏设置名称、类型、颜色、Z 景深和笔记。</li><li>按 <code>C</code>，依次点击两个房间来创建连接。也可点击左侧房间列表指定端点，或先切换景深再点击目标。</li><li>选中连线，在右栏设置两个出口、连接类型、单向性及机关条件。位置接近并不自动连通。</li><li>双击房间进入室内灰盒。选择顶部对象类型，按 <code>R</code> 拖动绘制；按 <code>V</code> 移动和缩放对象。</li><li>用“可达性预览”检查路线，用左侧复选框切换条件，用“检查结构”定位基础问题。</li></ol>
+<h2>3. 景深与出口约定</h2><div class="figure">前景 Z -1　← 前景通道 ←　主景 Z 0　→ 后景通道 →　后景 Z +1
+                    每个景深平面都有自己的上下楼层
+                    左 / 右 / 上 / 下 / 前景 / 后景 是独立出口</div>
+<p>选择“全部”可以同时看所有景深；选择单层只显示该层的房间和层内连线。跨景深连线在“全部”视图查看。新增房间采用当前选择的景深；新建景深不会创建空房间。房间的 X/Y 是总览排版坐标，不是原作像素坐标。</p>
+<p>连接工具默认根据两房间的景深差、高低和左右关系推断类型与出口，创建后仍可在属性中手动修正。虚线表示前后景或传送；金色线表示附带条件；落下用红色表示，属性选择落下时默认单向。单向箭头从起点指向终点。</p>
+<h2>4. 机关条件与预览</h2><p>在左侧新增条件，例如“水闸已开启”“持有封印钥匙”。条件可选择初始是否满足。连接可引用多个条件并选择“全部（AND）”或“任一（OR）”；没有条件时视为开放。</p><p>在室内选中机关、宝箱等对象，可设置它关联的条件获取点。这是一条设计标注，<strong>不会在预览中自动触发</strong>；预览始终使用左侧手动勾选的当前状态。</p><p>“可达性预览”从起始房间按当前状态遍历房间图，用绿色边框标出可达房间。要改起点，选中房间后点击“设为起点”。“检查结构”将所有条件视为已满足，检查单向或孤立连接、同景深的前后景连接、没有获取点且非初始满足的条件。</p><blockquote>这里没有角色控制、碰撞与跳跃模拟；不会判断冰晶能否够到平台、计时机关、完整获取顺序、消耗钥匙或旋转房间。预览通过不代表关卡一定可通关。</blockquote>
+<h2>5. 室内灰盒</h2><p>每个世界格细分为固定 4× 子网格。支持实体地形、平台、水晶造阶点、冻结敌人、宝箱、敌人、机关、梯子、存档点、危险区、可推拉物和注释。房间连接在室内边缘显示定位锚点；前后景出口锚点也是示意位置，未建模精确门坐标。</p><p>对象可改标签、位置、宽高和关联条件。拖动右下角缩放。图形不能越出房间；缩小房间也不能裁掉已有对象。房间内可用对象组合出 L 形或多层平台，但总览房间边界仍为矩形。</p>
+<h2>6. 示例地图怎么读</h2><p>原创示例含八个房间、三种景深和一个条件：入口经水晶回廊进入封印大厅，后景水渠通向古代机关，机关标注“水闸已开启”。手动勾选该条件后，首领房在预览中开放。高处宝库有单向落下返回大厅；前景小径有存档点。</p><p>这张地图用于演示“主路径—后景支路—获取机关—回访开门”的设计结构。可以删除、改名、继续编辑，或从地图库重新新增一份示例。不会覆盖已有文件。</p>
+<h2>7. 保存、同步与备份</h2><p>通过 NAS 的 <code>/lenneth-map/</code> 打开时，编辑后约 650 毫秒自动写入 NAS，同时保留 IndexedDB 本机副本。服务器文件位于现有数据卷 <code>/data/boards/lennethmap/</code>，与 MVMap、白板数据分开。容器重建保留文件；删除会移入该目录的 <code>.trash/</code>。</p><p>其他设备从地图库打开，或点击“刷新 NAS”读取最新版本。不是实时协同编辑。版本冲突返回提示，服务器不会被旧版本覆盖；请“另存副本”或导出 JSON 后再刷新。断网和登录过期会显示错误，重新登录后点击“重试保存”。地图库中的“本机备份”可恢复为新工程。</p><p>通过静态 HTTP 服务打开时只保存到浏览器，不连接 NAS。模块脚本需要 HTTP/HTTPS，请勿直接用 file:// 打开。章节和难度是元数据，不会自动筛选关卡。</p>
+<table><tr><th>输出</th><th>内容</th></tr><tr><td>.lenneth.json</td><td>完整工程、景深、房间、连接、机关条件、室内对象；可继续编辑</td></tr><tr><td>PNG 总览</td><td>当前景深过滤后的完整房间图，包含当前预览效果</td></tr><tr><td>PNG 室内</td><td>当前房间的完整灰盒与出口锚点</td></tr></table>
+<p>导入时校验工程格式并生成新工程 ID，不覆盖已有项目。LennethMap JSON 与 MVMap JSON 是两种独立格式，不可互导；后续可以再做格式转换。不要直接在服务运行时覆盖 NAS 上的 JSON 文件；建议从编辑器导入。</p>
+<h2>8. 快捷键</h2><table><tr><th>按键</th><th>操作</th></tr><tr><td>V</td><td>选择、移动、调整大小</td></tr><tr><td>R / B</td><td>绘制房间或室内方框</td></tr><tr><td>C</td><td>连接两个房间</td></tr><tr><td>E</td><td>点击删除</td></tr><tr><td>H / 按住空格 / 中键拖动</td><td>平移画布</td></tr><tr><td>滚轮 / F</td><td>鼠标位置缩放 / 适应全部内容</td></tr><tr><td>双击 / Enter</td><td>进入所选房间的室内灰盒</td></tr><tr><td>Esc</td><td>取消连接或选择，再按返回总览</td></tr><tr><td>Delete / Backspace</td><td>删除当前选择</td></tr><tr><td>Ctrl/Cmd+Z</td><td>撤销，最多 100 次</td></tr><tr><td>Ctrl/Cmd+Shift+Z / Ctrl/Cmd+Y</td><td>重做</td></tr><tr><td>Ctrl/Cmd+S</td><td>导出 JSON 备份</td></tr></table>
+<h2>9. 范围与来源</h2><p>本版本面向<strong>一个迷宫工程</strong>的房间图与室内设计。没有制作可飞行世界地图、角色战斗系统、ROM 修改器或完整原作机制模拟器。没有使用原作贴图、配乐、角色画或完整攻略地图。调研结论与工具自己的设计约定已分别说明。</p><ul><li><a href="https://manuals.plus/m/673fa72166b67553869be93a206fe794005d1d92bea15ae5bd4695dc4dc0da66">《Valkyrie Profile: Lenneth》PSP 原版说明书镜像</a>：世界地图、横版移动、前后景、水晶与物体交互。</li><li><a href="https://valkyrieprofile.fandom.com/wiki/Clockwork_Mansion">Clockwork Mansion</a>、<a href="https://valkyrieprofile.fandom.com/wiki/Seraphic_Gate">Seraphic Gate</a>：特殊迷宫背景参考，未据此复刻地图。</li><li><a href="https://titaniumcladstudios.github.io/MVMap/">MVMap</a>：工作区组织方式参考。此编辑器为独立实现，不复制 MVMap 源代码。</li></ul>
+</main></body></html>
