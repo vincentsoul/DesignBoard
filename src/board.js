@@ -901,13 +901,19 @@ function wireUI() {
   document.querySelector('#back-to-boards').addEventListener('click', async () => {
     if (state.switching) return;
     state.switching = true;
+    const button = document.querySelector('#back-to-boards');
+    const label = button.textContent;
+    button.disabled = true;
+    button.textContent = '正在保存…';
     try {
+      const hasPendingEdits = state.dirty || state.saveTimer !== null;
       if (state.saveTimer) { clearTimeout(state.saveTimer); state.saveTimer = null; state.dirty = false; }
-      if (fileSync.enabled) { await fileSync.push(); await fileSync.flush(); }
-      else if (!saveLocal(state.doc)) throw new Error('保存失败，请先导出 JSON');
-      if (saveStatusEl.classList.contains('unsaved')) throw new Error('保存尚未成功，请先重试或导出 JSON');
+      if (fileSync.enabled) {
+        if (!await fileSync.saveBeforeLeave(hasPendingEdits)) throw new Error('保存未成功，已保留当前内容。请重试或先导出 JSON 备份，再返回主页');
+      } else if ((hasPendingEdits || saveStatusEl.classList.contains('unsaved')) && !saveLocal(state.doc)) throw new Error('保存失败，请先导出 JSON');
       location.assign('/');
-    } catch (error) { showToast(error.message, 'error'); state.switching = false; }
+    } catch (error) { showToast(error.message, 'error'); }
+    finally { state.switching = false; button.disabled = false; button.textContent = label; }
   });
   document.querySelectorAll('[data-tool]').forEach((button) => button.addEventListener('click', () => setTool(button.dataset.tool)));
   document.querySelector('#undo-button').innerHTML = icon('undo'); document.querySelector('#redo-button').innerHTML = icon('redo'); document.querySelector('#fit-button').innerHTML = icon('fit');
