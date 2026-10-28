@@ -1,0 +1,4 @@
+interface:
+  display_name: "SVG 先行界面开发"
+  short_description: "先用 SVG 收敛界面设计，再映射为原生应用或游戏 UI 并对照验证"
+  default_prompt: "使用 $svg-first-ui，先为当前界面制作可预览 SVG 设计稿，再按项目现有技术栈实现并核对。"
