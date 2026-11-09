@@ -23,7 +23,7 @@ def xml(parent, tag, **attrs):
     return el
 
 
-def build(output, assets):
+def build(output, assets, *, color=False):
     data = json.loads((ROOT / 'docs/grade1-logic-content.json').read_text())
     lessons = data['lessons']
     doc = Document()
@@ -71,6 +71,8 @@ def build(output, assets):
 
     def page(label, title):
         marker = p(label, 11, after=7)
+        if color:
+            marker.runs[0].font.color.rgb = RGBColor(0x31, 0x7F, 0x75)
         marker.paragraph_format.page_break_before = True
         marker.paragraph_format.keep_with_next = True
         doc.add_heading(title, 1)
@@ -80,8 +82,12 @@ def build(output, assets):
 
     def pic(name, width=16.3):
         stream = io.BytesIO()
-        with Image.open(assets / (name + '.png')) as im:
-            ImageOps.grayscale(im).save(stream, 'PNG')
+        source = assets / (name + '.png')
+        if color:
+            stream.write(source.read_bytes())
+        else:
+            with Image.open(source) as im:
+                ImageOps.grayscale(im).save(stream, 'PNG')
         stream.seek(0)
         para = p(after=8)
         para.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -223,7 +229,8 @@ def build(output, assets):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--assets', type=Path, default=ROOT / 'outputs/grade1-logic-story/assets')
-    parser.add_argument('--output', type=Path,
-                        default=ROOT / 'outputs/grade1-book/一年级逻辑思维森林探险印刷版.docx')
+    parser.add_argument('--color', action='store_true', help='Use the original color illustrations.')
+    parser.add_argument('--output', type=Path)
     args = parser.parse_args()
-    build(args.output, args.assets)
+    filename = '一年级逻辑思维森林探险彩色印刷版.docx' if args.color else '一年级逻辑思维森林探险印刷版.docx'
+    build(args.output or ROOT / 'outputs/grade1-book' / filename, args.assets, color=args.color)
