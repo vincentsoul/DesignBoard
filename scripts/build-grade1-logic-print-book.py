@@ -91,9 +91,12 @@ def build(output, assets, *, color=False):
     def h(title):
         doc.add_heading(title, 2)
 
-    def pic(name, width=16.3):
+    def pic(name, width=16.3, *, source=None, max_height=None):
         stream = io.BytesIO()
-        source = assets / (name + '.png')
+        source = source or assets / (name + '.png')
+        if max_height:
+            with Image.open(source) as im:
+                width = min(width, max_height * im.width / im.height)
         if color:
             stream.write(source.read_bytes())
         else:
@@ -156,27 +159,26 @@ def build(output, assets, *, color=False):
             p(prompt)
             ruled(3 if n == 5 else 2)
 
-    p('小学一年级', 15, before=60, after=14)
+    p('小学一年级', 15, before=16, after=10)
     doc.add_heading('一年级逻辑思维\n森林探险', 0)
+    pic('三个伙伴走向森林游园会', source=ROOT / 'docs/assets/grade1-forest-cover.png',
+        max_height=8)
     p('森林游园会快开场了！小兔米米、小狐点点和小龟慢慢约好一起出发。'
-      '他们要走过花灯小路，搭上小火车，再去纸艺工坊看看。', 16, before=28, after=14)
-    p('一路上，三个伙伴会遇到不同的难题。你愿意和他们一起找线索，'
-      '摆一摆、画一画，再说说自己的办法吗？', 16, after=14)
-    p('全书 7 讲', 13, before=18)
-    p('姓名 ____________________    班级 ____________________', 15, before=32)
-    p('原创配套教材', 11, before=24)
+      '他们要走过花灯小路，搭上小火车，再去纸艺工坊看看。', 15, after=9)
+    h('出发前看一看')
+    p('找找工坊挂着的纸鸟。它们的颜色哪里不同，形状哪里相像？'
+      '试着用手指沿着翅膀的边比一比，再把你的发现说给伙伴听。', 14)
+    p('姓名 ____________________    班级 ____________________', 15, before=16)
+    p('原创配套教材', 11, before=8)
 
-    page('开始探险', '目录')
+    page('开始探险', '目录', chapter=True)
     for i, lesson in enumerate(lessons):
         row = p(f'第 {i+1} 讲  {lesson["title"]}\t{3 + i*4}', 14, after=9)
         row.paragraph_format.tab_stops.add_tab_stop(Cm(16.3), WD_TAB_ALIGNMENT.RIGHT)
     row = p('参考答案与教学提示\t31', 14, after=9)
     row.paragraph_format.tab_stops.add_tab_stop(Cm(16.3), WD_TAB_ALIGNMENT.RIGHT)
-    row = p('参考资料\t38', 14)
+    row = p('教师备注与参考资料\t38', 14)
     row.paragraph_format.tab_stops.add_tab_stop(Cm(16.3), WD_TAB_ALIGNMENT.RIGHT)
-    h('怎样用这本书')
-    p('先读故事，再跟着例题想一想。练习可以写在书上，也可以摆实物、画图。挑战题选做。')
-    p('每讲四页。老师可以先带读前两页，再让孩子独立完成练习，最后做动手活动。')
 
     for i, lesson in enumerate(lessons):
         label = f'第 {i+1} 讲'
@@ -229,7 +231,11 @@ def build(output, assets, *, color=False):
         p(lesson['parent'])
         p(lesson['reminder'])
 
-    page('教师参考', '参考资料')
+    page('教师参考', '教师备注与参考资料')
+    h('怎样用这本书')
+    p('先读故事，再跟着例题想一想。练习可以写在书上，也可以摆实物、画图。挑战题选做。')
+    p('每讲四页。老师可以先带读前两页，再让孩子独立完成练习，最后做动手活动。')
+    h('参考资料')
     p('本书为原创配套教材。故事、题目与图示独立编写，教学组织参考以下公开资料。')
     for n, ref in enumerate(data['references'], 1):
         h(f'{n}  {ref["title"]}')
