@@ -6,6 +6,7 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 from docx import Document
+from docx.enum.section import WD_SECTION_START
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT
 from docx.oxml import OxmlElement
@@ -69,13 +70,23 @@ def build(output, assets, *, color=False):
             run.font.size = Pt(size)
         return para
 
-    def page(label, title):
-        marker = p(label, 11, after=7)
+    def page(label, title, *, chapter=False):
+        if chapter:
+            section = doc.add_section(WD_SECTION_START.NEW_PAGE)
+            section.different_first_page_header_footer = False
+            # The section break occupies its own paragraph at the end of the previous page.
+            break_format = doc.paragraphs[-1].paragraph_format
+            break_format.space_before = break_format.space_after = Pt(0)
+            break_format.line_spacing = Pt(1)
+        marker = p(label, 14 if chapter else 11, after=7)
+        marker.runs[0].bold = chapter
         if color:
             marker.runs[0].font.color.rgb = RGBColor(0x31, 0x7F, 0x75)
-        marker.paragraph_format.page_break_before = True
+        marker.paragraph_format.page_break_before = not chapter
         marker.paragraph_format.keep_with_next = True
-        doc.add_heading(title, 1)
+        heading = doc.add_heading(title, 1)
+        if chapter:
+            heading.runs[0].font.size = Pt(28)
 
     def h(title):
         doc.add_heading(title, 2)
@@ -167,7 +178,7 @@ def build(output, assets, *, color=False):
 
     for i, lesson in enumerate(lessons):
         label = f'第 {i+1} 讲'
-        page(label + '  故事与方法', lesson['title'])
+        page(label + '  故事与方法', lesson['title'], chapter=True)
         pic(f'scene-{i+1}')
         p(lesson['dialogue'], after=11)
         h('今天的任务')
@@ -204,7 +215,7 @@ def build(output, assets, *, color=False):
         ruled(2)
 
     for i, lesson in enumerate(lessons):
-        page(f'教师参考  第 {i+1} 讲', lesson['title'])
+        page(f'教师参考  第 {i+1} 讲', lesson['title'], chapter=i == 0)
         h('换你来')
         p(lesson['followanswer'])
         h('分层练习答案')
