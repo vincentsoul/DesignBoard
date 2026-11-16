@@ -144,13 +144,15 @@ def build(output, assets, *, color=False):
                         sz=8, color='D9D9D9')
 
     grids = {
-        1: [[1, '', 3], ['', 3, 1], [3, 1, '']],
+        1: [[2, '', 1], [1, 2, ''], ['', 1, 2]],
         3: [[1, '', ''], ['', 1, 2], [2, '', 1]],
         5: [[1, '', ''], ['', '', ''], ['', '', '']],
     }
 
     def question(i, lesson, n):
         level, prompt = lesson['qs'][n - 1]
+        if level == '挑战':
+            level = '挑战选做'
         h(f'{n}  {level}')
         if i == 0 and n in grids:
             p(prompt.split('\n')[0])
@@ -210,7 +212,7 @@ def build(output, assets, *, color=False):
         ruled(2)
 
         page(label + '  练习上', '我来当小探险家')
-        p('先自己试一试。需要时，可以画图或用实物帮忙。', 12)
+        p('老师可以读题。先摆一摆或画一画，再说说理由。', 12)
         for n in (1, 2, 3):
             question(i, lesson, n)
 
@@ -234,18 +236,25 @@ def build(output, assets, *, color=False):
         p(lesson['materials'])
         h('教学提示')
         p(lesson['parent'])
-        p(lesson['reminder'])
+        h('课堂追问与检查')
+        p(lesson['teaching']['questions'], 12)
+        p('易错点：' + lesson['teaching']['pitfall'], 12)
+        p('课末口头检查：' + lesson['teaching']['exit'], 12)
 
     page('教师参考', '教师备注与参考资料')
     h('怎样用这本书')
     p('先读故事，再跟着例题想一想。练习可以写在书上，也可以摆实物、画图。挑战题选做。')
-    p('每讲四页。老师可以先带读前两页，再让孩子独立完成练习，最后做动手活动。')
+    p('每讲建议 35 分钟：故事与回顾 3 分钟，动手探索 8 分钟，例题与跟练 8 分钟，分层练习 10 分钟，交流与课末检查 6 分钟。时间可按孩子表现调整。', 12)
+    p('先做第 1、2 题；能说清理由后再选第 3、4 题。第 5 题选做，不以全做完或做得快作为目标。读题困难时由老师带读，孩子可以摆、画、指、说；课后最多选一道生活小任务。', 12)
+    p('开课先看孩子能否对应数到 10、比较多少并用实物做简单加减。遇到困难就减小数量。小括号、分的换算、两位数密码不作本册共同达标要求；半数还原只在能把实物分成相同两份后尝试。', 12)
     h('参考资料')
     p('本书为原创配套教材。故事、题目与图示独立编写，教学组织参考以下公开资料。')
     for n, ref in enumerate(data['references'], 1):
-        h(f'{n}  {ref["title"]}')
-        p(ref['url'], 10)
-    p('本书非学而思官方教材。', 11, before=14)
+        para = p(f'{n}  {ref["title"]}', 11, before=5, after=2)
+        para.runs[0].bold = True
+        para = p(ref['url'], 9, after=3)
+        para.paragraph_format.line_spacing = 1
+    p('本书非学而思官方教材。', 10, after=0)
     output.parent.mkdir(parents=True, exist_ok=True)
     doc.save(output)
 
