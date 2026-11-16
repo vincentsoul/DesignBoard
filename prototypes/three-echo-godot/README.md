@@ -1,0 +1,56 @@
+# 三级回声 · Godot Demo
+
+Godot 4.7.2 的独立第一人称白模试玩。场景外壳来自 Blender 导出的 `assets/whitebox.glb`，移动、碰撞、交互、界面和连锁由 Godot 实现。
+
+## 启动
+
+打开仓库的 `outputs/three-echo-godot/ThreeEcho.app`，点击「开始试玩」。应用内已包含关卡和运行时。
+
+也可以双击本目录的 `启动试玩.command`。它优先打开已打包应用，应用不存在时使用本机 `/Applications/Godot.app` 直接运行源码项目。
+
+编辑关卡时，在 Godot 导入本目录的 `project.godot`，按 F6 运行 `main.tscn`，或按 F5 运行项目。
+
+## 操作
+
+| 操作 | 输入 |
+| --- | --- |
+| 移动 | WASD |
+| 转头 | 鼠标 |
+| 拿起、放置 | 走近并瞄准后按 E |
+| 射击起爆 | 放下手中晶体，瞄准固定红色晶体，鼠标左键 |
+| 跳跃 | 空格，一米台阶也可自动登上 |
+| 重置 | R，恢复晶体、平台和玩家位置 |
+| 暂停、释放鼠标 | Esc |
+
+切出游戏窗口会暂停，返回后点击「继续试玩」。准星下方提供拿取、放置、距离与基座匹配提示，可操作目标会高亮。
+
+## 关卡
+
+平台顺序为入口 → C → B → A → 出口。最初三座平台都在地面，颜色依次为绿、红、蓝。每发生一次换色或消色，受影响的平台上升一米。标志物把脚下色域变为自身颜色，受影响区域上的其他晶体继续触发。
+
+绿色晶体可在 B 和 A 的绿色基座间搬运，消色晶体可在入口展台和 B 的白色基座间搬运。红色晶体固定，抬高的起爆点方便从入口瞄准。
+
+<details>
+<summary>查看完整解法</summary>
+
+把绿色晶体搬到 A，把消色晶体搬到 B。返回入口，射击红色晶体。
+
+第一轮 A 蓝变红，触发绿色晶体。第二轮 A、B 红变绿，触发 B 上的消色晶体。第三轮 A、B、C 绿变无色。最终 C=1、B=2、A=3，沿平台中线走到四米高出口即可通关。
+
+</details>
+
+## 验证与导出
+
+运行以下命令验证实际物理射线、E 键拿放、错误基座、射击、暂停、三段连锁、物理通关和连锁中途重置。
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path prototypes/three-echo-godot --script res://verify.gd
+```
+
+在仓库根目录执行下列命令可重新导出应用，需要 Godot 4.7.2 macOS 导出模板。
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path prototypes/three-echo-godot --export-release macOS ../../outputs/three-echo-godot/ThreeEcho.app
+```
+
+应用采用本机临时签名。源项目、导入设置和白模资产纳入 Git，`.godot/` 缓存与 `outputs/` 构建产物忽略。
