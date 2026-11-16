@@ -2,6 +2,7 @@
 import bpy
 import math
 import time
+import blf
 from mathutils import Vector
 
 SCENE = 'Three Echo'
@@ -70,22 +71,87 @@ def label(body, location, size=.3, rotation=(math.pi / 2, 0, 0)):
     return obj
 
 
+def socket_position(slot):
+    scene = bpy.data.scenes[SCENE]
+    if slot == 'stand':
+        return Vector((-2.1, -2, .32))
+    index = 2 if slot == 'A' else 1
+    return Vector((.65, index * 3 + 1.5, scene.get('height_' + str(index), 0) + .12))
+
+
 def set_symbol_positions():
     scene = bpy.data.scenes[SCENE]
-    for key, index, x in [('red', 2, -.65),
-                          ('green', 2 if scene.echo_green else 1, .65),
-                          ('none', 1 if scene.echo_null else -1, -.65)]:
+    slots = {'green': 'A' if scene.echo_green else 'B',
+             'none': 'B' if scene.echo_null else 'stand'}
+    for obj in scene.objects:
+        if 'echo_slot' in obj:
+            obj.location = socket_position(obj['echo_slot'])
+            if obj.get('echo_accept') == 'none' and obj['echo_slot'] == 'B':
+                obj.location.x = -.65
+    for key in ['red', 'green', 'none']:
         obj = bpy.data.objects['Echo crystal ' + key]
-        if index < 0:
-            obj.location = (-2.1, -2, .65)
+        if scene.get('held', '') == key:
+            camera = scene.camera
+            obj.location = camera.location + camera.rotation_euler.to_quaternion() @ Vector((.48, -.35, -.85))
+        elif key == 'red':
+            obj.location = (-.65, 7.5, scene.get('height_2', 0) + .65)
         else:
-            obj.location = (x, index * 3 + 1.5, scene.get('height_' + str(index), 0) + .65)
+            obj.location = socket_position(slots[key]) + Vector((0, 0, .5))
+            if key == 'none' and slots[key] == 'B':
+                obj.location.x = -.65
         obj.hide_viewport = key in scene.get('consumed', '').split(',')
+
+
+def aim(context, reach=30):
+    camera = context.scene.camera
+    context.view_layer.update()
+    direction = camera.rotation_euler.to_quaternion() @ Vector((0, 0, -1))
+    hit, position, normal, face, obj, matrix = context.scene.ray_cast(
+        context.evaluated_depsgraph_get(), camera.location, direction, distance=reach)
+    return obj if hit else None
+
+
+def interact(context):
+    scene = context.scene
+    if scene.get('fired'):
+        scene['message'] = 'R to reset before arranging crystals.'
+        return False
+    obj = aim(context, 2.4)
+    held = scene.get('held', '')
+    if not obj:
+        scene['message'] = 'Move closer and aim at a crystal or socket.'
+        return False
+    key = obj.get('echo_crystal', '')
+    if not held and key in {'green', 'none'}:
+        scene['held'] = key
+        scene['message'] = 'Carrying ' + key.upper() + '. Aim at an empty socket and press E.'
+        set_symbol_positions()
+        return True
+    if held and 'echo_slot' in obj:
+        slot = obj['echo_slot']
+        valid = {'green': {'A', 'B'}, 'none': {'stand', 'B'}}
+        # B has separate sockets for green and null, so both may share its color.
+        if obj.get('echo_accept') != held or slot not in valid[held]:
+            scene['message'] = 'This socket is for ' + obj.get('echo_accept', '').upper() + '.'
+            return False
+        if held == 'green':
+            scene.echo_green = slot == 'A'
+        else:
+            scene.echo_null = slot == 'B'
+        scene['held'] = ''
+        scene['message'] = 'Placed ' + held.upper() + ' on ' + slot + '.'
+        set_symbol_positions()
+        return True
+    scene['message'] = 'E picks up crystals or places them into matching sockets.'
+    return False
 
 
 def reset():
     scene = bpy.data.scenes[SCENE]
     scene['fired'] = False
+    scene['held'] = ''
+    scene.echo_green = False
+    scene.echo_null = False
     scene['consumed'] = ''
     scene['message'] = 'Arrange crystals, then fire. Each color change lifts a platform by 1m.'
     for i, color in enumerate(['green', 'red', 'blue']):
@@ -124,7 +190,12 @@ def build():
         bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=.3, radius2=0, depth=.75)
         obj = bpy.context.object
         obj.name = 'Echo crystal ' + key
+        obj['echo_crystal'] = key
         obj.data.materials.append(mats[key])
+    for slot, accept in [('A', 'green'), ('B', 'green'), ('B', 'none'), ('stand', 'none')]:
+        obj = box('Echo socket ' + slot + ' ' + accept, socket_position(slot), (.8, .8, .22), mats[accept])
+        obj['echo_slot'] = slot
+        obj['echo_accept'] = accept
     box('Echo console', (-2.1, -2, .15), (.65, .65, .3), gray)
     box('Echo exit post left', (-1.25, 10.2, 5.2), (.18, .25, 2.4), gray)
     box('Echo exit post right', (1.25, 10.2, 5.2), (.18, .25, 2.4), gray)
@@ -156,24 +227,6 @@ def build():
     scene.render.resolution_percentage = 100
 
 
-class ECHO_OT_arrange(bpy.types.Operator):
-    bl_idname = 'echo.arrange'
-    bl_label = 'Arrange crystal'
-    which: bpy.props.StringProperty()
-
-    def execute(self, context):
-        scene = context.scene
-        if scene.get('fired'):
-            self.report({'INFO'}, 'Reset before changing the arrangement')
-            return {'CANCELLED'}
-        if self.which == 'green':
-            scene.echo_green = not scene.echo_green
-        else:
-            scene.echo_null = not scene.echo_null
-        set_symbol_positions()
-        return {'FINISHED'}
-
-
 class ECHO_OT_reset(bpy.types.Operator):
     bl_idname = 'echo.reset'
     bl_label = 'Reset platforms'
@@ -190,12 +243,43 @@ class ECHO_OT_play(bpy.types.Operator):
     bl_label = 'Play / first person'
     _timer = None
 
+    def draw_hud(self, context):
+        if context.area != self.area:
+            return
+        width, height = self.region.width, self.region.height
+        blf.size(0, 22)
+        blf.color(0, 1, 1, 1, 1)
+        blf.position(0, width / 2 - 6, height / 2 - 8, 0)
+        blf.draw(0, '+')
+        blf.size(0, 16)
+        blf.position(0, 28, 65, 0)
+        blf.draw(0, 'WASD move | Mouse look | E pick/place | Left click shoot | R reset | Esc release')
+        blf.position(0, 28, 40, 0)
+        blf.draw(0, context.scene.get('message', ''))
+        blf.position(0, 28, 90, 0)
+        held = context.scene.get('held', '')
+        blf.draw(0, 'Carrying: ' + (held.upper() if held else 'empty'))
+
+    def stop(self, context):
+        self.stopped = True
+        context.window_manager.event_timer_remove(self._timer)
+        bpy.types.SpaceView3D.draw_handler_remove(self._draw, 'WINDOW')
+        context.window.cursor_modal_restore()
+        self.space.show_region_ui = self.sidebar
+        context.workspace.status_text_set(None)
+        bpy.app.driver_namespace.pop('echo_stop', None)
+        self.area.tag_redraw()
+
+
     def invoke(self, context, event):
         if context.area.type != 'VIEW_3D':
             return {'CANCELLED'}
+        if 'echo_stop' in bpy.app.driver_namespace:
+            self.report({'INFO'}, 'Already playing. Esc releases the mouse.')
+            return {'CANCELLED'}
         self.keys = set()
-        self.yaw = 0
-        self.pitch = 0
+        self.yaw = context.scene.camera.rotation_euler.z
+        self.pitch = context.scene.camera.rotation_euler.x - math.pi / 2
         self.last = time.monotonic()
         self.waves = []
         self.next_wave = 0
@@ -204,27 +288,56 @@ class ECHO_OT_play(bpy.types.Operator):
         context.window_manager.modal_handler_add(self)
         context.space_data.region_3d.view_perspective = 'CAMERA'
         self.area = context.area
+        self.region = next(r for r in context.area.regions if r.type == 'WINDOW')
+        self.space = context.space_data
+        self.sidebar = self.space.show_region_ui
+        self.space.show_region_ui = False
+        self.space.region_3d.view_camera_offset = (0, 0)
+        self.center = (self.region.x + self.region.width // 2, self.region.y + self.region.height // 2)
+        context.window.cursor_modal_set('NONE')
+        context.window.cursor_warp(*self.center)
+        self._draw = bpy.types.SpaceView3D.draw_handler_add(self.draw_hud, (context,), 'WINDOW', 'POST_PIXEL')
+        self.stopped = False
+        bpy.app.driver_namespace['echo_stop'] = self
         return {'RUNNING_MODAL'}
 
     def modal(self, context, event):
         scene = context.scene
-        if event.type == 'ESC' or scene.name != SCENE:
-            context.window_manager.event_timer_remove(self._timer)
-            context.workspace.status_text_set(None)
+        if getattr(self, 'stopped', False):
             return {'CANCELLED'}
-        if event.value == 'PRESS':
+        if event.type == 'ESC' or scene.name != SCENE:
+            self.stop(context)
+            return {'CANCELLED'}
+        if event.type == 'MOUSEMOVE':
+            dx = event.mouse_x - self.center[0]
+            dy = event.mouse_y - self.center[1]
+            self.yaw -= dx * .0025
+            self.pitch = max(-1.35, min(1.35, self.pitch + dy * .0025))
+            context.window.cursor_warp(*self.center)
+            scene.camera.rotation_euler = (math.pi / 2 + self.pitch, 0, self.yaw)
+        if event.type == 'WINDOW_DEACTIVATE':
+            self.stop(context)
+            return {'CANCELLED'}
+        if event.value == 'PRESS' and not event.is_repeat:
             self.keys.add(event.type)
-            if event.type in {'G', 'N'}:
-                bpy.ops.echo.arrange(which='green' if event.type == 'G' else 'none')
+            if event.type == 'E':
+                interact(context)
             if event.type == 'R':
                 bpy.ops.echo.reset()
                 self.waves = []
                 self.target = [0, 0, 0]
                 self.yaw = self.pitch = 0
-            if event.type == 'SPACE' and not scene.get('fired'):
-                scene['fired'] = True
-                self.waves = solve(scene.echo_green, scene.echo_null)
-                self.next_wave = time.monotonic()
+            if event.type == 'LEFTMOUSE' and not scene.get('fired'):
+                obj = aim(context)
+                if scene.get('held'):
+                    scene['message'] = 'Place the carried crystal before shooting.'
+                elif obj and obj.get('echo_crystal') == 'red':
+                    scene['fired'] = True
+                    self.waves = solve(scene.echo_green, scene.echo_null)
+                    self.next_wave = time.monotonic()
+                    scene['message'] = 'Red crystal hit. Chain starting.'
+                else:
+                    scene['message'] = 'Miss. Aim at the fixed RED crystal.'
         elif event.value == 'RELEASE':
             self.keys.discard(event.type)
         if event.type == 'TIMER':
@@ -243,7 +356,6 @@ class ECHO_OT_play(bpy.types.Operator):
                 current += min(max(self.target[i] - current, 0), dt * 1.5)
                 scene['height_' + str(i)] = current
                 bpy.data.objects['Echo platform ' + str(i)].location.z = current - .22
-            set_symbol_positions()
             self.yaw += (('LEFT_ARROW' in self.keys) - ('RIGHT_ARROW' in self.keys)) * dt * 1.6
             self.pitch = max(-1.1, min(1.1, self.pitch + (('UP_ARROW' in self.keys) - ('DOWN_ARROW' in self.keys)) * dt))
             camera = scene.camera
@@ -264,9 +376,10 @@ class ECHO_OT_play(bpy.types.Operator):
             elif ground <= feet + 1.08:
                 candidate.z = ground + 1.65
                 camera.location = candidate
+            set_symbol_positions()
             if camera.location.y > 10 and camera.location.z >= 5.6:
                 scene['message'] = 'COMPLETE! You built the three-step staircase. R to replay.'
-            context.workspace.status_text_set('WASD move | Arrows look | G move GREEN | N move NULL | Space fire | R reset | Esc stop')
+            context.workspace.status_text_set('WASD move | Mouse look | E pick/place | Left click shoot | R reset | Esc stop')
             self.area.tag_redraw()
         return {'RUNNING_MODAL'}
 
@@ -285,13 +398,8 @@ class ECHO_PT_panel(bpy.types.Panel):
             layout.label(text='Select the Three Echo scene')
             return
         layout.operator('echo.play')
-        layout.label(text='WASD move / Arrows look')
-        layout.label(text='Space fire / R reset / Esc stop')
-        layout.separator()
-        op = layout.operator('echo.arrange', text='G: Green -> ' + ('A (blue)' if scene.echo_green else 'B (red)'))
-        op.which = 'green'
-        op = layout.operator('echo.arrange', text='N: Null -> ' + ('B (red)' if scene.echo_null else 'Entrance'))
-        op.which = 'none'
+        layout.label(text='WASD / Mouse look / E pick-place')
+        layout.label(text='Left click shoot / R reset / Esc')
         layout.operator('echo.reset')
         layout.separator()
         layout.label(text='Each color change lifts +1m')
@@ -304,7 +412,14 @@ class ECHO_PT_panel(bpy.types.Panel):
             layout.label(text=message[start:start+34])
 
 
-CLASSES = [ECHO_OT_arrange, ECHO_OT_reset, ECHO_OT_play, ECHO_PT_panel]
+CLASSES = [ECHO_OT_reset, ECHO_OT_play, ECHO_PT_panel]
+active = bpy.app.driver_namespace.get('echo_stop')
+if active:
+    active.stop(bpy.context)
+    active.stopped = True
+prior_arrange = getattr(bpy.types, 'ECHO_OT_arrange', None)
+if prior_arrange:
+    bpy.utils.unregister_class(prior_arrange)
 for cls in CLASSES:
     prior = getattr(bpy.types, cls.__name__, None)
     if prior:
@@ -313,4 +428,4 @@ for cls in CLASSES:
 bpy.types.Scene.echo_green = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.echo_null = bpy.props.BoolProperty(default=False)
 build()
-print('Three Echo ready. N sidebar > Three Echo > Play. G / N arrange, Space fire, WASD, arrows, R reset, Esc exit.')
+print('Three Echo ready. N sidebar > Three Echo > Play. Mouse look, E pick/place, left click shoot, WASD, R reset, Esc exit.')
