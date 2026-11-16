@@ -190,7 +190,8 @@ def build(output, assets, *, color=False):
     for i, lesson in enumerate(lessons):
         label = f'第 {i+1} 讲'
         page(label + '  故事与方法', lesson['title'], chapter=True)
-        pic(f'scene-{i+1}')
+        story_art = ROOT / 'docs/assets/grade1-forest-scenes' / f'scene-{i+1}.png'
+        pic(f'scene-{i+1}', source=story_art if story_art.exists() else None)
         p(lesson['dialogue'], after=11)
         h('今天的任务')
         p(lesson['mission'])
