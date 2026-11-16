@@ -108,10 +108,10 @@ def build(output, assets, *, color=False):
         shape = para.add_run().add_picture(stream, width=Cm(width))
         shape._inline.docPr.set('descr', name)
 
-    def ruled(count):
+    def ruled(count, height=25):
         for _ in range(count):
             para = p('\u00a0', 9, after=5)
-            para.paragraph_format.line_spacing = Pt(25)
+            para.paragraph_format.line_spacing = Pt(height)
             borders = xml(para._p.get_or_add_pPr(), 'pBdr')
             xml(borders, 'bottom', val='single', sz=4, space=0, color='A5A5A5')
             xml(borders, 'between', val='single', sz=4, space=0, color='A5A5A5')
@@ -180,11 +180,11 @@ def build(output, assets, *, color=False):
 
     page('开始探险', '目录', chapter=True)
     for i, lesson in enumerate(lessons):
-        row = p(f'第 {i+1} 讲  {lesson["title"]}\t{3 + i*4}', 14, after=9)
+        row = p(f'第 {i+1} 讲  {lesson["title"]}\t{3 + i*6}', 14, after=9)
         row.paragraph_format.tab_stops.add_tab_stop(Cm(16.3), WD_TAB_ALIGNMENT.RIGHT)
-    row = p('参考答案与教学提示\t31', 14, after=9)
+    row = p('参考答案与教学提示\t45', 14, after=9)
     row.paragraph_format.tab_stops.add_tab_stop(Cm(16.3), WD_TAB_ALIGNMENT.RIGHT)
-    row = p('教师备注与参考资料\t38', 14)
+    row = p('教师备注与参考资料\t59', 14)
     row.paragraph_format.tab_stops.add_tab_stop(Cm(16.3), WD_TAB_ALIGNMENT.RIGHT)
 
     for i, lesson in enumerate(lessons):
@@ -211,12 +211,24 @@ def build(output, assets, *, color=False):
         p('我先看到了什么？我是怎么检查答案的？')
         ruled(2)
 
-        page(label + '  练习上', '我来当小探险家')
+        for group in range(2):
+            page(label + '  基础巩固' + ('一' if group == 0 else '二'),
+                 '我能做到了' if group == 0 else '再试一次更熟练')
+            p('每次可以只做 4 题。可以摆、画或说，老师也可以帮忙读题。', 12)
+            for n in range(group * 4, group * 4 + 4):
+                h(f'基础 {n+1}')
+                p(lesson['basics'][n][0])
+                ruled(1, height=32)
+            h('看看我的进步')
+            p(lesson['basic_feedback'][group], 12)
+            p('我可以：□ 自己完成  □ 借助学具完成  □ 再试一次', 12)
+
+        page(label + '  综合练习上', '我来当小探险家')
         p('老师可以读题。先摆一摆或画一画，再说说理由。', 12)
         for n in (1, 2, 3):
             question(i, lesson, n)
 
-        page(label + '  练习下', '再往前走一步')
+        page(label + '  综合练习下', '再往前走一步')
         for n in (4, 5):
             question(i, lesson, n)
         h('动手活动')
@@ -240,12 +252,18 @@ def build(output, assets, *, color=False):
         p(lesson['teaching']['questions'], 12)
         p('易错点：' + lesson['teaching']['pitfall'], 12)
         p('课末口头检查：' + lesson['teaching']['exit'], 12)
+        page(f'教师参考  第 {i+1} 讲  基础巩固', '基础答案与鼓励建议')
+        for n, (_, answer) in enumerate(lesson['basics'], 1):
+            p(f'基础 {n}  {answer}')
+        h('怎样给出正反馈')
+        p(lesson['basic_praise'])
+        p('先请孩子独立试，再按需要给学具或一个提示。核对后，说出他具体做对的一步。答错时先保留做对的部分，重摆或重画后，让孩子再独立试一道同类题。', 12)
+        p('两页基础题可分次使用：课堂选 4 题，下一次课复习再选 4 题。孩子已熟练时可以少做；暂时困难时停留在基础，不赶进阶。', 12)
 
     page('教师参考', '教师备注与参考资料')
     h('怎样用这本书')
-    p('先读故事，再跟着例题想一想。练习可以写在书上，也可以摆实物、画图。挑战题选做。')
     p('每讲建议 35 分钟：故事与回顾 3 分钟，动手探索 8 分钟，例题与跟练 8 分钟，分层练习 10 分钟，交流与课末检查 6 分钟。时间可按孩子表现调整。', 12)
-    p('先做第 1、2 题；能说清理由后再选第 3、4 题。第 5 题选做，不以全做完或做得快作为目标。读题困难时由老师带读，孩子可以摆、画、指、说；课后最多选一道生活小任务。', 12)
+    p('每讲六页，含两页基础巩固共 8 题，可分两次各做 4 题。先用基础题建立信心，再选综合练习第 1、2 题；能说明理由后再选第 3、4 题，第 5 题选做。允许摆、画、指、说，不必一次全做完。', 12)
     p('开课先看孩子能否对应数到 10、比较多少并用实物做简单加减。遇到困难就减小数量。小括号、分的换算、两位数密码不作本册共同达标要求；半数还原只在能把实物分成相同两份后尝试。', 12)
     h('参考资料')
     p('本书为原创配套教材。故事、题目与图示独立编写，教学组织参考以下公开资料。')
