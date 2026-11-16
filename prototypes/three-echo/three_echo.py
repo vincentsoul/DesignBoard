@@ -3,6 +3,7 @@ import bpy
 import math
 import time
 import blf
+import os
 from mathutils import Vector
 
 SCENE = 'Three Echo'
@@ -111,6 +112,33 @@ def aim(context, reach=30):
     return obj if hit else None
 
 
+def interaction_hint(context):
+    scene = context.scene
+    if scene.get('fired'):
+        return None, '', False
+    obj = aim(context)
+    if not obj:
+        return None, '', False
+    close = aim(context, 2.4) == obj
+    held = scene.get('held', '')
+    key = obj.get('echo_crystal', '')
+    if not held and key in {'green', 'none'}:
+        if close:
+            return obj, '按 E 拿起', True
+        return None, '走近晶体后按 E 拿起', False
+    if held and 'echo_slot' in obj:
+        if obj.get('echo_accept') != held:
+            return None, '基座不匹配，请寻找同色基座', False
+        if not close:
+            return None, '靠近基座后按 E 放置', False
+        return obj, '按 E 放置', True
+    if key == 'red':
+        if held:
+            return None, '先放下手中的晶体', False
+        return obj, '鼠标左键射击，触发连锁', True
+    return None, '', False
+
+
 def interact(context):
     scene = context.scene
     if scene.get('fired'):
@@ -175,6 +203,7 @@ def build():
     scene.world.color = (.35, .35, .35)
     mats = {key: material('Echo ' + key, color) for key, color in COLORS.items()}
     white = material('Echo white', (.92, .93, .94, 1))
+    material('Echo interaction highlight', (1.0, .7, .05, 1))
     gray = material('Echo gray', (.32, .36, .40, 1))
     box('Echo entrance', (0, -2, -.3), (5, 4, .6), white)
     box('Echo exit', (0, 11, 1.8), (3.4, 4, 4.4), white)
@@ -243,6 +272,21 @@ class ECHO_OT_play(bpy.types.Operator):
     bl_label = 'Play / first person'
     _timer = None
 
+    def clear_highlight(self):
+        obj = getattr(self, 'highlighted', None)
+        if obj and obj.name in bpy.data.objects:
+            obj.data.materials[0] = self.original_material
+        self.highlighted = None
+
+    def update_highlight(self, context):
+        obj, self.hint, self.hint_ready = interaction_hint(context)
+        if obj != getattr(self, 'highlighted', None):
+            self.clear_highlight()
+            if obj:
+                self.original_material = obj.data.materials[0]
+                obj.data.materials[0] = bpy.data.materials['Echo interaction highlight']
+                self.highlighted = obj
+
     def draw_hud(self, context):
         if context.area != self.area:
             return
@@ -251,6 +295,12 @@ class ECHO_OT_play(bpy.types.Operator):
         blf.color(0, 1, 1, 1, 1)
         blf.position(0, width / 2 - 6, height / 2 - 8, 0)
         blf.draw(0, '+')
+        font = self.font
+        blf.size(font, 22)
+        blf.color(font, *( (1, .85, .2, 1) if self.hint_ready else (1, 1, 1, 1) ))
+        text_width, _ = blf.dimensions(font, self.hint)
+        blf.position(font, (width - text_width) / 2, height / 2 - 48, 0)
+        blf.draw(font, self.hint)
         blf.size(0, 16)
         blf.position(0, 28, 65, 0)
         blf.draw(0, 'WASD move | Mouse look | E pick/place | Left click shoot | R reset | Esc release')
@@ -262,6 +312,7 @@ class ECHO_OT_play(bpy.types.Operator):
 
     def stop(self, context):
         self.stopped = True
+        self.clear_highlight()
         context.window_manager.event_timer_remove(self._timer)
         bpy.types.SpaceView3D.draw_handler_remove(self._draw, 'WINDOW')
         context.window.cursor_modal_restore()
@@ -277,6 +328,13 @@ class ECHO_OT_play(bpy.types.Operator):
         if 'echo_stop' in bpy.app.driver_namespace:
             self.report({'INFO'}, 'Already playing. Esc releases the mouse.')
             return {'CANCELLED'}
+        self.highlighted = None
+        self.hint = ''
+        self.hint_ready = False
+        self.font = 0
+        font_path = '/System/Library/Fonts/Hiragino Sans GB.ttc'
+        if os.path.exists(font_path):
+            self.font = blf.load(font_path)
         self.keys = set()
         self.yaw = context.scene.camera.rotation_euler.z
         self.pitch = context.scene.camera.rotation_euler.x - math.pi / 2
@@ -321,13 +379,16 @@ class ECHO_OT_play(bpy.types.Operator):
         if event.value == 'PRESS' and not event.is_repeat:
             self.keys.add(event.type)
             if event.type == 'E':
+                self.clear_highlight()
                 interact(context)
             if event.type == 'R':
+                self.clear_highlight()
                 bpy.ops.echo.reset()
                 self.waves = []
                 self.target = [0, 0, 0]
                 self.yaw = self.pitch = 0
             if event.type == 'LEFTMOUSE' and not scene.get('fired'):
+                self.clear_highlight()
                 obj = aim(context)
                 if scene.get('held'):
                     scene['message'] = 'Place the carried crystal before shooting.'
@@ -345,6 +406,7 @@ class ECHO_OT_play(bpy.types.Operator):
             dt = min(now - self.last, .06)
             self.last = now
             if self.waves and now >= self.next_wave:
+                self.clear_highlight()
                 symbol, affected, colors, self.target = self.waves.pop(0)
                 scene['consumed'] += ',' + symbol
                 scene['message'] = 'Pulse -> ' + symbol.upper() + ' | platforms ' + ', '.join('CBA'[i] for i in affected)
@@ -380,6 +442,7 @@ class ECHO_OT_play(bpy.types.Operator):
             if camera.location.y > 10 and camera.location.z >= 5.6:
                 scene['message'] = 'COMPLETE! You built the three-step staircase. R to replay.'
             context.workspace.status_text_set('WASD move | Mouse look | E pick/place | Left click shoot | R reset | Esc stop')
+            self.update_highlight(context)
             self.area.tag_redraw()
         return {'RUNNING_MODAL'}
 
@@ -397,6 +460,7 @@ class ECHO_PT_panel(bpy.types.Panel):
         if scene.name != SCENE:
             layout.label(text='Select the Three Echo scene')
             return
+        layout.label(text='启动：点击下方 Play')
         layout.operator('echo.play')
         layout.label(text='WASD / Mouse look / E pick-place')
         layout.label(text='Left click shoot / R reset / Esc')
