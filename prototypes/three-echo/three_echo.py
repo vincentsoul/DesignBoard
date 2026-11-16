@@ -300,7 +300,12 @@ class ECHO_OT_play(bpy.types.Operator):
         blf.color(font, *( (1, .85, .2, 1) if self.hint_ready else (1, 1, 1, 1) ))
         text_width, _ = blf.dimensions(font, self.hint)
         blf.position(font, (width - text_width) / 2, height / 2 - 48, 0)
-        blf.draw(font, self.hint)
+        prompt = self.hint
+        if self.input_warning:
+            prompt = '请切换到英文输入法，再使用 WASD / E'
+        if self.paused:
+            prompt = '已暂停，点击游戏视口继续'
+        blf.draw(font, prompt)
         blf.size(0, 16)
         blf.position(0, 28, 65, 0)
         blf.draw(0, 'WASD move | Mouse look | E pick/place | Left click shoot | R reset | Esc release')
@@ -315,7 +320,8 @@ class ECHO_OT_play(bpy.types.Operator):
         self.clear_highlight()
         context.window_manager.event_timer_remove(self._timer)
         bpy.types.SpaceView3D.draw_handler_remove(self._draw, 'WINDOW')
-        context.window.cursor_modal_restore()
+        if not self.paused:
+            context.window.cursor_modal_restore()
         self.space.show_region_ui = self.sidebar
         context.workspace.status_text_set(None)
         bpy.app.driver_namespace.pop('echo_stop', None)
@@ -328,6 +334,8 @@ class ECHO_OT_play(bpy.types.Operator):
         if 'echo_stop' in bpy.app.driver_namespace:
             self.report({'INFO'}, 'Already playing. Esc releases the mouse.')
             return {'CANCELLED'}
+        self.paused = False
+        self.input_warning = False
         self.highlighted = None
         self.hint = ''
         self.hint_ready = False
@@ -366,17 +374,42 @@ class ECHO_OT_play(bpy.types.Operator):
         if event.type == 'ESC' or scene.name != SCENE:
             self.stop(context)
             return {'CANCELLED'}
+        if event.type == 'WINDOW_DEACTIVATE':
+            # Leaving Blender pauses play, so returning does not expose editor shortcuts.
+            self.keys.clear()
+            if not self.paused:
+                context.window.cursor_modal_restore()
+            self.paused = True
+            self.area.tag_redraw()
+            return {'RUNNING_MODAL'}
+        if self.paused:
+            if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
+                inside = (self.region.x <= event.mouse_x < self.region.x + self.region.width
+                          and self.region.y <= event.mouse_y < self.region.y + self.region.height)
+                if inside:
+                    self.paused = False
+                    self.last = time.monotonic()
+                    self.center = (self.region.x + self.region.width // 2,
+                                   self.region.y + self.region.height // 2)
+                    context.window.cursor_modal_set('NONE')
+                    context.window.cursor_warp(*self.center)
+            self.area.tag_redraw()
+            return {'RUNNING_MODAL'}
         if event.type == 'MOUSEMOVE':
             dx = event.mouse_x - self.center[0]
             dy = event.mouse_y - self.center[1]
             self.yaw -= dx * .0025
             self.pitch = max(-1.35, min(1.35, self.pitch + dy * .0025))
-            context.window.cursor_warp(*self.center)
+            if dx or dy:
+                context.window.cursor_warp(*self.center)
             scene.camera.rotation_euler = (math.pi / 2 + self.pitch, 0, self.yaw)
-        if event.type == 'WINDOW_DEACTIVATE':
-            self.stop(context)
-            return {'CANCELLED'}
+        if event.type == '' and event.value == 'PRESS':
+            self.input_warning = True
+            self.area.tag_redraw()
+            return {'RUNNING_MODAL'}
         if event.value == 'PRESS' and not event.is_repeat:
+            if event.type in {'W', 'A', 'S', 'D', 'E', 'R'}:
+                self.input_warning = False
             self.keys.add(event.type)
             if event.type == 'E':
                 self.clear_highlight()
