@@ -493,3 +493,33 @@ bpy.types.Scene.echo_green = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.echo_null = bpy.props.BoolProperty(default=False)
 build()
 print('Three Echo ready. N sidebar > Three Echo > Play. Mouse look, E pick/place, left click shoot, WASD, R reset, Esc exit.')
+
+
+def start_after_script():
+    # Defer until Blender has finished executing the Text Editor operator.
+    token = object()
+    bpy.app.driver_namespace['echo_pending_start'] = token
+    window = bpy.context.window
+
+    def launch():
+        if bpy.app.driver_namespace.get('echo_pending_start') is not token:
+            return None
+        bpy.app.driver_namespace.pop('echo_pending_start', None)
+        workspace = bpy.data.workspaces.get('Layout') or bpy.data.workspaces.get('布局')
+        if workspace:
+            window.workspace = workspace
+        areas = [area for area in window.screen.areas if area.type == 'VIEW_3D']
+        if not areas:
+            print('Three Echo: open a 3D Viewport, then F3 > Play / first person.')
+            return None
+        area = max(areas, key=lambda item: item.width * item.height)
+        region = next(region for region in area.regions if region.type == 'WINDOW')
+        with bpy.context.temp_override(window=window, area=area, region=region):
+            bpy.ops.echo.play('INVOKE_DEFAULT')
+        print('Three Echo playing. Esc releases mouse. WASD move, E pick/place, left click shoot.')
+        return None
+
+    bpy.app.timers.register(launch, first_interval=.2)
+
+
+start_after_script()

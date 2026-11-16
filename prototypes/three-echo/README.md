@@ -11,8 +11,9 @@
 1. 顶部选择 Scripting（脚本）工作区。
 2. 在文本编辑器的文本下拉菜单中选择 `START_THREE_ECHO.py`。
 3. 点击文本编辑器顶部的三角形 Run Script（运行脚本）按钮，也可把鼠标放在文本编辑器内按 Alt+P。
-4. 回到 Layout（布局），把鼠标移入 3D 视口。
-5. 按 F3，搜索 `Play / first person` 并回车。也可按 N，在 Three Echo 侧栏点击 Play。
+4. 脚本自动切换到 Layout（布局）并进入第一人称试玩，看到准星后即可操作。
+
+按 Esc 退出后，如需继续，在 3D 视口按 F3 搜索 `Play / first person`，或在 N 侧栏 Three Echo 中点击 Play。
 
 运行脚本会重建专用的 Three Echo 场景。
 
