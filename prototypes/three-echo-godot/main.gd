@@ -13,6 +13,13 @@ var held := ""
 var fired := false
 var running := false
 var completed := false
+var chain_active := false
+var guide_step := 1
+var guide_title: Label
+var guide_body: Label
+var guide_marker: Label3D
+var entrance_target: Marker3D
+var exit_target: Marker3D
 var chain_generation := 0
 var player: CharacterBody3D
 var camera: Camera3D
@@ -35,7 +42,7 @@ func _ready() -> void:
 	_build_player()
 	_build_ui()
 	reset_level()
-	show_menu("三级回声", "第一人称色域解谜 · 白模试玩\n\n地面每换色一次，平台升高 1 米。\n搬动绿色与消色晶体，再射击红色晶体，\n把 C / B / A 拼成通往四米高出口的楼梯。")
+	show_menu("三级回声", "第一人称色域解谜 · 白模试玩\n\n地面每换色一次，平台升高 1 米。\n搬动绿色与消色晶体，再射击红色晶体，\n把 C / B / A 拼成通往四米高出口的楼梯。\n\n右上角会逐步告诉你拿什么、放哪里。")
 
 func mat(color: Color) -> StandardMaterial3D:
 	var result := StandardMaterial3D.new()
@@ -154,6 +161,20 @@ func _build_world() -> void:
 	highlight_material.emission = Color("c99436")
 	highlight_material.emission_energy_multiplier = 0.4
 
+	entrance_target = Marker3D.new()
+	entrance_target.position = Vector3(0, 0, 2.5)
+	add_child(entrance_target)
+	exit_target = Marker3D.new()
+	exit_target.position = Vector3(0, 4, -11)
+	add_child(exit_target)
+	guide_marker = Label3D.new()
+	guide_marker.font_size = 40
+	guide_marker.pixel_size = 0.003
+	guide_marker.modulate = Color("ffdb83")
+	guide_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	guide_marker.no_depth_test = true
+	add_child(guide_marker)
+
 func _make_socket(key: String, index: int, x: float, accept: String) -> void:
 	var body := StaticBody3D.new()
 	body.name = "Socket_" + key
@@ -241,6 +262,22 @@ func _build_ui() -> void:
 	ui_label(header, "色域实验室  /  第一人称白模", 14, Color("b5d0da"))
 	metrics = ui_label(header, "", 17)
 	carrying = ui_label(header, "", 16, Color("ffdc90"))
+	var guide_panel := PanelContainer.new()
+	root.add_child(guide_panel)
+	guide_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	guide_panel.offset_left = -398
+	guide_panel.offset_right = -18
+	guide_panel.offset_top = 18
+	guide_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	guide_panel.add_theme_stylebox_override("panel", hud_style())
+	var guide_content := VBoxContainer.new()
+	guide_content.custom_minimum_size.x = 352
+	guide_content.add_theme_constant_override("separation", 8)
+	guide_panel.add_child(guide_content)
+	guide_title = ui_label(guide_content, "", 20, Color("ffdc90"))
+	guide_body = ui_label(guide_content, "", 17)
+	guide_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
 	var cross := Control.new()
 	root.add_child(cross)
 	cross.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -369,6 +406,7 @@ func _physics_process(delta: float) -> void:
 		completed = true
 		show_menu("通关！", "你用一次连锁搭出了三级楼梯。\n\nC 参与 1 轮，B 参与 2 轮，A 参与 3 轮。\n可以重置关卡，试试另一种布置。")
 	_update_target()
+	_update_guide()
 	metrics.text = "平台高度   C %dm   /   B %dm   /   A %dm" % heights
 	carrying.text = "手持  " + NAMES[held] if held else "手持  空"
 	status.text = toast
@@ -479,6 +517,7 @@ func shoot() -> void:
 		toast = "未命中起爆点，瞄准 A 上的红色晶体。"
 		return
 	fired = true
+	chain_active = true
 	_clear_highlight()
 	_run_chain(chain_generation)
 
@@ -532,6 +571,7 @@ func _run_chain(generation: int) -> void:
 			if running:
 				elapsed += get_physics_process_delta_time()
 	if generation == chain_generation:
+		chain_active = false
 		toast = "连锁完成！沿 C → B → A 前往出口。" if heights == [1, 2, 3] else "楼梯还不够高，按 R 重置，试试调整晶体位置。"
 
 func reset_level() -> void:
@@ -544,6 +584,7 @@ func reset_level() -> void:
 	held = ""
 	fired = false
 	completed = false
+	chain_active = false
 	colors = ["green", "red", "blue"]
 	heights = [0, 0, 0]
 	locations = {"red": "A_red", "green": "B_green", "none": "stand"}
@@ -564,3 +605,41 @@ func reset_level() -> void:
 	player.velocity = Vector3.ZERO
 	camera.rotation = Vector3(-0.08, 0, 0)
 	toast = "搬动晶体，安排一次连锁，搭出通往出口的楼梯。"
+
+	_update_guide()
+
+func guide_data() -> Array:
+	if completed:
+		return [8, "已完成", "你已亲手完成一次换色连锁！\nC 升高 1 米，B 升高 2 米，A 升高 3 米。", null]
+	if fired:
+		if chain_active:
+			return [7, "观察三段连锁", "暂时留在入口，观察 A、B、C 依次加入换色。\n每次换色，受影响的平台都升高 1 米。", null]
+		if heights != [1, 2, 3]:
+			return [1, "重新布置", "这次没有搭出完整楼梯。按 R 重置，跟随引导重新布置晶体。", null]
+		return [8, "走向出口", "沿平台中央向前走：C → B → A → 出口。\n一米台阶会自动登上，也可按空格跳跃。", exit_target]
+	if held == "green":
+		return [2, "绿色晶体 → A", "继续向前，到最远处的蓝色 A 平台。\n瞄准空的绿色基座，走近后按 E 放置。", sockets.A_green]
+	if held == "none":
+		return [4, "消色晶体 → B", "走到中间的红色 B 平台。\n瞄准白色基座，走近后按 E 放置。", sockets.B_none]
+	if locations.green != "A_green":
+		return [1, "拿起绿色晶体", "先走到中间的红色 B 平台。\n瞄准绿色晶体，出现提示后按 E 拿起。", crystals.green]
+	if locations.none != "B_none":
+		return [3, "拿起消色晶体", "转身返回入口，找到入口侧边展台上的白色消色晶体。\n走近并瞄准，按 E 拿起。", crystals.none]
+	if player.position.z < 0.3 or player.position.y > 0.3:
+		return [5, "返回入口观察", "两颗晶体都已放好。转身沿平台返回入口，准备观察完整连锁。", entrance_target]
+	return [6, "射击红色晶体", "面向出口，瞄准最远处 A 平台上抬高的红色晶体。\n按鼠标左键射击。", crystals.red]
+
+func _update_guide() -> void:
+	var data := guide_data()
+	guide_step = data[0]
+	guide_title.text = "分步引导 %d / 8 · %s" % [guide_step, data[1]]
+	guide_body.text = data[2]
+	var target: Node3D = data[3]
+	guide_marker.visible = target != null
+	if target:
+		guide_marker.global_position = target.global_position + Vector3.UP * 0.95
+		guide_marker.text = "▼ 当前目标"
+		var distance := player.global_position.distance_to(target.global_position)
+		guide_body.text += "\n目标距离 %.1f 米" % distance
+		if camera.to_local(target.global_position).z > 0:
+			guide_body.text += " · 在你身后，请转身"
