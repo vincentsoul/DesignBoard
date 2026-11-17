@@ -55,7 +55,7 @@ func _ready() -> void:
 	_build_player()
 	_build_ui()
 	reset_level()
-	show_menu("三级回声", "第一人称色域解谜 · 白模试玩\n\n地面每换色一次，平台升高 1 米。\n搬动绿色与消色晶体，再射击红色晶体，\n把 C / B / A 拼成通往四米高出口的楼梯。\n\n右上角会逐步告诉你拿什么、放哪里。")
+	show_menu("三级回声", "第一人称色域解谜 · 白模试玩\n\n地面每换色一次，平台升高 1 米。\n所有晶体均可搬运、自由摆放与射击。\n把 C / B / A 拼成通往四米高出口的楼梯。\n\n右上角会逐步告诉你拿什么、放哪里。")
 
 func mat(color: Color) -> StandardMaterial3D:
 	var result := StandardMaterial3D.new()
@@ -126,11 +126,16 @@ func _build_world() -> void:
 		collision_box(platform, Vector3(2.8, 0.44, 2.8), Vector3(0, -0.22, 0))
 		world_label(platform, "CBA"[i], Vector3(-1, 0.5, 0.8))
 		platforms.append(platform)
-	_make_socket("A_red", 2, -0.65, "red")
-	_make_socket("A_green", 2, 0.65, "green")
-	_make_socket("B_green", 1, 0.65, "green")
-	_make_socket("B_none", 1, -0.65, "none")
-	_make_socket("stand", -1, -1.8, "none")
+	_make_socket("A_red", 2, -0.65, true)
+	_make_socket("A_green", 2, 0.65)
+	_make_socket("B_green", 1, 0.65)
+	_make_socket("B_none", 1, -0.65)
+	_make_socket("stand", -1, -1.8)
+	_make_socket("A_extra", 2, 0, false, 0.85)
+	_make_socket("B_extra", 1, 0, false, 0.85)
+	_make_socket("C_left", 0, -0.65)
+	_make_socket("C_right", 0, 0.65)
+	_make_socket("C_extra", 0, 0, false, 0.85)
 	for key in ["red", "green", "none"]:
 		var body := StaticBody3D.new()
 		body.name = "Crystal_" + key
@@ -188,27 +193,26 @@ func _build_world() -> void:
 	guide_marker.no_depth_test = true
 	add_child(guide_marker)
 
-func _make_socket(key: String, index: int, x: float, accept: String) -> void:
+func _make_socket(key: String, index: int, x: float, raised: bool = false, z: float = 0) -> void:
 	var body := StaticBody3D.new()
 	body.name = "Socket_" + key
 	body.collision_layer = 2
 	body.collision_mask = 0
 	body.set_meta("kind", "socket")
 	body.set_meta("slot", key)
-	body.set_meta("accept", accept)
 	body.set_meta("index", index)
 	if index >= 0:
 		platforms[index].add_child(body)
-		body.position = Vector3(x, 0.62 if accept == "red" else 0.12, 0)
+		body.position = Vector3(x, 0.62 if raised else 0.12, z)
 	else:
 		add_child(body)
 		body.position = Vector3(x, 0.32, 2)
-	mesh_box(body, Vector3(0.75, 0.22, 0.75), Vector3.ZERO, COLORS[accept])
+	mesh_box(body, Vector3(0.75, 0.22, 0.75), Vector3.ZERO, COLORS.none)
 	collision_box(body, Vector3(0.75, 0.22, 0.75), Vector3.ZERO)
-	if accept == "red":
+	if raised:
 		mesh_box(body, Vector3(0.35, 0.5, 0.35), Vector3(0, -0.36, 0), Color("9faeb8"))
 		collision_box(body, Vector3(0.35, 0.5, 0.35), Vector3(0, -0.36, 0))
-	world_label(body, "固定起爆点" if accept == "red" else NAMES[accept] + "基座", Vector3(0, 0.22, -0.35), Color("283841"))
+	world_label(body, ("CBA"[index] + " 通用基座") if index >= 0 else "入口通用基座", Vector3(0, 0.22, -0.35), Color("283841"))
 	sockets[key] = body
 
 func _build_player() -> void:
@@ -374,7 +378,7 @@ func _build_ui() -> void:
 	content.add_child(start_button)
 	start_button.pressed.connect(resume_game)
 	rules_button = Button.new()
-	rules_button.text = "玩法说明 · 用四张图看懂连锁"
+	rules_button.text = "自由规则与参考解法 · 四张图"
 	content.add_child(rules_button)
 	rules_button.pressed.connect(func(): show_rules())
 	reset_button = Button.new()
@@ -412,10 +416,10 @@ func show_rules(page: int = 0) -> void:
 	rules_open = true
 	rules_page = clampi(page, 0, 3)
 	var pages := [
-		["目标：把平地变成楼梯", "出口在 4 米高处。我们需要 C 高 1 米、B 高 2 米、\nA 高 3 米，才能一步步走上去。\n\n每个平台真正换色一次，就上升 1 米。\n下面是初始状态：三座平台都是 0 米。", ["green", "red", "blue"], [0, 0, 0]],
-		["第一轮：红晶体让 A 变红", "晶体脚下的颜色，决定哪些地面一起变。\n晶体自己的颜色，决定它们变成什么颜色。\n\n红晶体站在蓝色 A 上：击破后，A 蓝 → 红。\nA 升高 1 米。B 原本就是红色，这轮不变、不升高。", ["green", "red", "red"], [0, 0, 1]],
-		["第二轮：绿色晶体接上连锁", "先把绿色晶体搬到蓝色 A 上。\n第一轮 A 换色时，会引爆站在 A 上的绿色晶体。\n\n它让所有红地面变绿，此时包括 A 和 B。\nA 又升高 1 米，B 第一次升高，C 这轮还不动。", ["green", "green", "green"], [0, 1, 2]],
-		["第三轮：消色晶体完成楼梯", "先把白色消色晶体放到红色 B 上。\n第二轮 B 换色时，会引爆这颗消色晶体。\n\n此时 A、B、C 都是绿色，一起消色，各升高 1 米。\n最终 C=1、B=2、A=3。沿楼梯走向出口即可。", ["none", "none", "none"], [1, 2, 3]]
+		["自由摆放，目标是搭出楼梯", "出口在 4 米高处。我们需要 C 高 1 米、B 高 2 米、\nA 高 3 米，才能一步步走上去。\n\n每个平台真正换色一次，就上升 1 米。\n任意晶体可搬到任意平台，也可射击任意晶体启动。\n后面三页演示一种参考解法。", ["green", "red", "blue"], [0, 0, 0]],
+		["示例第一轮：红晶体让 A 变红", "晶体脚下的颜色，决定哪些地面一起变。\n晶体自己的颜色，决定它们变成什么颜色。\n\n红晶体站在蓝色 A 上：击破后，A 蓝 → 红。\nA 升高 1 米。B 原本就是红色，这轮不变、不升高。", ["green", "red", "red"], [0, 0, 1]],
+		["示例第二轮：绿色晶体接上连锁", "先把绿色晶体搬到蓝色 A 上。\n第一轮 A 换色时，会引爆站在 A 上的绿色晶体。\n\n它让所有红地面变绿，此时包括 A 和 B。\nA 又升高 1 米，B 第一次升高，C 这轮还不动。", ["green", "green", "green"], [0, 1, 2]],
+		["示例第三轮：消色晶体完成楼梯", "先把白色消色晶体放到红色 B 上。\n第二轮 B 换色时，会引爆这颗消色晶体。\n\n此时 A、B、C 都是绿色，一起消色，各升高 1 米。\n最终 C=1、B=2、A=3。沿楼梯走向出口即可。", ["none", "none", "none"], [1, 2, 3]]
 	]
 	var data: Array = pages[rules_page]
 	menu_title.text = data[0]
@@ -456,7 +460,7 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key: int = event.physical_keycode if event.physical_keycode else event.keycode
 		if key == KEY_ESCAPE and running:
-			show_menu("已暂停", "点击继续试玩。\n\nE 拿取或放置晶体，左键射击固定红色晶体。")
+			show_menu("已暂停", "点击继续试玩。\n\nE 拿取或放置晶体，任意晶体均可左键射击，也可放到任意平台的空基座。")
 		elif running and key == KEY_E:
 			interact()
 		elif running and key == KEY_R:
@@ -523,7 +527,7 @@ func _clear_highlight() -> void:
 func _update_target() -> void:
 	_clear_highlight()
 	prompt.text = ""
-	if fired:
+	if chain_active:
 		return
 	var hit := target_hit()
 	if hit.is_empty():
@@ -532,17 +536,14 @@ func _update_target() -> void:
 	var kind: String = body.get_meta("kind", "")
 	var close: bool = camera.global_position.distance_to(hit.position) <= REACH
 	var eligible := false
-	if kind == "crystal" and not held:
-		if body.get_meta("key") == "red":
-			prompt.text = "左键射击 · 触发连锁"
-			eligible = true
+	if kind == "crystal":
+		if held:
+			prompt.text = "这里已有晶体，寻找空基座"
 		else:
-			prompt.text = "按 E 拿起" if close else "走近晶体后按 E 拿起"
-			eligible = close
+			prompt.text = "按 E 拿起 · 左键射击" if close else "左键射击 · 走近后按 E 拿起"
+			eligible = true
 	elif kind == "socket" and held:
-		if body.get_meta("accept") != held:
-			prompt.text = "基座不匹配 · 寻找同色基座"
-		elif _occupied(body.get_meta("slot")):
+		if _occupied(body.get_meta("slot")):
 			prompt.text = "基座已有晶体"
 		else:
 			prompt.text = "按 E 放置" if close else "靠近基座后按 E 放置"
@@ -556,8 +557,8 @@ func _occupied(slot: String) -> bool:
 	return locations.values().has(slot)
 
 func interact() -> void:
-	if fired:
-		toast = "连锁已经触发，按 R 重置后重新布置。"
+	if chain_active:
+		toast = "等待这次连锁结束，即可继续搬运和射击剩余晶体。"
 		return
 	var hit := target_hit()
 	if hit.is_empty() or camera.global_position.distance_to(hit.position) > REACH:
@@ -565,9 +566,6 @@ func interact() -> void:
 	var body: Node3D = hit.collider
 	if not held and body.get_meta("kind", "") == "crystal":
 		var key: String = body.get_meta("key")
-		if key == "red":
-			toast = "红色晶体固定在 A，瞄准后左键射击。"
-			return
 		_clear_highlight()
 		held = key
 		locations[key] = "held"
@@ -575,10 +573,10 @@ func interact() -> void:
 		body.reparent(camera)
 		body.position = Vector3(0.43, -0.34, -0.85)
 		body.rotation = Vector3.ZERO
-		toast = "拿起了" + NAMES[key] + "，寻找匹配的基座。"
+		toast = "拿起了" + NAMES[key] + "，可放到任意平台的空基座。"
 	elif held and body.get_meta("kind", "") == "socket":
 		var slot: String = body.get_meta("slot")
-		if body.get_meta("accept") != held or _occupied(slot):
+		if _occupied(slot):
 			return
 		_clear_highlight()
 		var crystal: StaticBody3D = crystals[held]
@@ -591,23 +589,23 @@ func interact() -> void:
 		held = ""
 
 func shoot() -> void:
-	if fired:
+	if chain_active:
 		return
 	if held:
 		toast = "先把手中的晶体放到基座上。"
 		return
 	var hit := target_hit()
-	if hit.is_empty() or hit.collider.get_meta("key", "") != "red":
-		toast = "未命中起爆点，瞄准 A 上的红色晶体。"
+	if hit.is_empty() or hit.collider.get_meta("kind", "") != "crystal":
+		toast = "未命中晶体，可瞄准任意晶体射击。"
 		return
 	fired = true
 	chain_active = true
 	_clear_highlight()
-	_run_chain(chain_generation)
+	_run_chain(chain_generation, hit.collider.get_meta("key"))
 
-func _run_chain(generation: int) -> void:
-	var queue: Array[String] = ["red"]
-	var scheduled: Array[String] = ["red"]
+func _run_chain(generation: int, start_key: String) -> void:
+	var queue: Array[String] = [start_key]
+	var scheduled: Array[String] = [start_key]
 	var wave := 0
 	while not queue.is_empty():
 		if generation != chain_generation:
@@ -659,7 +657,12 @@ func _run_chain(generation: int) -> void:
 				elapsed += get_physics_process_delta_time()
 	if generation == chain_generation:
 		chain_active = false
-		toast = "连锁完成！沿 C → B → A 前往出口。" if heights == [1, 2, 3] else "楼梯还不够高，按 R 重置，试试调整晶体位置。"
+		if heights == [1, 2, 3]:
+			toast = "连锁完成！沿 C → B → A 前往出口。"
+		elif locations.values().count("consumed") == crystals.size():
+			toast = "晶体已全部消耗，按 R 重置后尝试新布局。"
+		else:
+			toast = "这次连锁结束。可继续搬运或射击剩余晶体，R 重置全部晶体。"
 
 func reset_level() -> void:
 	chain_generation += 1
@@ -700,26 +703,30 @@ func guide_data() -> Array:
 		return [8, "已完成", "你已亲手完成一次换色连锁！\nC 升高 1 米，B 升高 2 米，A 升高 3 米。", null]
 	if fired:
 		if chain_active:
-			return [7, "观察三段连锁", "暂时留在入口，观察 A、B、C 依次加入换色。\n每次换色，受影响的平台都升高 1 米。", null]
+			return [7, "观察本次连锁", "观察这次起爆影响了哪些平台。\n每次真正换色，受影响的平台都升高 1 米。", null]
 		if heights != [1, 2, 3]:
-			return [1, "重新布置", "这次没有搭出完整楼梯。按 R 重置，跟随引导重新布置晶体。", null]
+			return [1, "继续自由实验", "可继续调整尚未消耗的晶体。\n按 R 可恢复全部晶体，尝试另一种布置或参考解法。", null]
 		return [8, "走向出口", "沿平台中央向前走：C → B → A → 出口。\n一米台阶会自动登上，也可按空格跳跃。", exit_target]
+	if held == "red":
+		return [1, "红色晶体也能搬运", "所有晶体都能放到任意平台。\n参考解法把红色晶体放在 A；你也可以尝试其他位置。", _empty_socket(2)]
 	if held == "green":
-		return [2, "绿色晶体 → A", "继续向前，到最远处的蓝色 A 平台。\n瞄准空的绿色基座，走近后按 E 放置。\n为什么：A 第一次换色会引爆它，接上第二轮。", sockets.A_green]
+		return [2, "绿色晶体 → A", "继续向前，到最远处的蓝色 A 平台。\n瞄准任意空基座，走近后按 E 放置。\n为什么：A 第一次换色会引爆它，接上第二轮。", _empty_socket(2)]
 	if held == "none":
-		return [4, "消色晶体 → B", "走到中间的红色 B 平台。\n瞄准白色基座，走近后按 E 放置。\n为什么：B 第二轮换色会引爆它，让三座平台一起消色。", sockets.B_none]
-	if locations.green != "A_green":
+		return [4, "消色晶体 → B", "走到中间的红色 B 平台。\n瞄准任意空基座，走近后按 E 放置。\n为什么：B 第二轮换色会引爆它，让三座平台一起消色。", _empty_socket(1)]
+	if _crystal_platform("red") != 2:
+		return [1, "参考解法：红色晶体在 A", "可自由摆放、射击任意晶体。\n若跟随参考解法，先把红色晶体搬回 A。", crystals.red]
+	if _crystal_platform("green") != 2:
 		return [1, "拿起绿色晶体", "先走到中间的红色 B 平台。\n瞄准绿色晶体，出现提示后按 E 拿起。", crystals.green]
-	if locations.none != "B_none":
+	if _crystal_platform("none") != 1:
 		return [3, "拿起消色晶体", "转身返回入口，找到入口侧边展台上的白色消色晶体。\n走近并瞄准，按 E 拿起。", crystals.none]
 	if player.position.z < 0.3 or player.position.y > 0.3:
 		return [5, "返回入口观察", "两颗晶体都已放好。转身沿平台返回入口，准备观察完整连锁。", entrance_target]
-	return [6, "射击红色晶体", "面向出口，瞄准最远处 A 平台上抬高的红色晶体。\n按鼠标左键射击。", crystals.red]
+	return [6, "射击红色晶体", "参考解法：从入口瞄准 A 上的红色晶体，左键射击。\n你也可以尝试从其他晶体启动。", crystals.red]
 
 func _update_guide() -> void:
 	var data := guide_data()
 	guide_step = data[0]
-	guide_title.text = "分步引导 %d / 8 · %s" % [guide_step, data[1]]
+	guide_title.text = "参考引导 %d / 8 · %s" % [guide_step, data[1]]
 	guide_body.text = data[2]
 	var target: Node3D = data[3]
 	guide_marker.visible = target != null
@@ -730,3 +737,13 @@ func _update_guide() -> void:
 		guide_body.text += "\n目标距离 %.1f 米" % distance
 		if camera.to_local(target.global_position).z > 0:
 			guide_body.text += " · 在你身后，请转身"
+
+func _crystal_platform(key: String) -> int:
+	var slot: String = locations[key]
+	return int(sockets[slot].get_meta("index")) if sockets.has(slot) else -1
+
+func _empty_socket(index: int) -> Node3D:
+	for slot in sockets:
+		if sockets[slot].get_meta("index") == index and not _occupied(slot):
+			return sockets[slot]
+	return null

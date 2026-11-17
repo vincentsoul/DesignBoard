@@ -27,6 +27,7 @@ func press(key: int, down: bool = true) -> void:
 	event.physical_keycode = key
 	event.pressed = down
 	Input.parse_input_event(event)
+	Input.flush_buffered_events()
 
 func run() -> void:
 	game = load("res://main.tscn").instantiate()
@@ -50,7 +51,7 @@ func run() -> void:
 	press(KEY_E, false)
 	check(game.held == "", "Cannot pick up distant crystal")
 	await aim_at(Vector3(0, 0.05, -3.6), game.crystals.green.global_position)
-	check(game.prompt.text == "按 E 拿起", "Pickup hint and physics ray")
+	check(game.prompt.text.contains("按 E 拿起"), "Pickup hint and physics ray")
 	check(game.highlighted != null, "Pickup highlight")
 	press(KEY_E)
 	await settle()
@@ -64,7 +65,12 @@ func run() -> void:
 	press(KEY_E)
 	await settle()
 	press(KEY_E, false)
-	check(game.held == "green", "Incompatible socket rejects placement")
+	check(game.held == "" and game.locations.green == "B_none", "Green accepts former white socket")
+	await aim_at(Vector3(0, 0.05, -3.6), game.crystals.green.global_position)
+	press(KEY_E)
+	await settle()
+	press(KEY_E, false)
+	check(game.held == "green", "Green can be picked back up")
 	await aim_at(Vector3(0, 0.05, -6.6), game.sockets.A_green.global_position)
 	check(game.prompt.text == "按 E 放置", "Placement hint")
 	press(KEY_E)
@@ -77,7 +83,7 @@ func run() -> void:
 	await settle()
 	press(KEY_E, false)
 	check(game.held == "none", "Pick up null")
-	check(game.guide_step == 4 and game.guide_data()[3] == game.sockets.B_none, "Guide points held null to B")
+	check(game.guide_step == 4 and game.guide_data()[3].get_meta("index") == 1, "Guide points held null to B")
 	await aim_at(Vector3(0, 0.05, -3.6), game.sockets.B_none.global_position)
 	press(KEY_E)
 	await settle()
@@ -124,5 +130,64 @@ func run() -> void:
 	game.reset_level()
 	await create_timer(1.8).timeout
 	check(game.heights == [0, 0, 0] and not game.fired, "Mid-chain reset stays reset")
+	# Every crystal must pass through actual pickup/place rays on every platform.
+	for key in ["red", "green", "none"]:
+		for slot in ["C_right", "B_extra", "A_extra"]:
+			game.reset_level()
+			game.resume_game()
+			await move_crystal(key, slot)
+			check(game.locations[key] == slot and game.held == "", "%s can be placed on %s" % [key, slot])
+	game.reset_level()
+	game.resume_game()
+	await move_crystal("green", "C_right")
+	await aim_at(Vector3(0, 0.05, -6.5), game.crystals.red.global_position)
+	game.interact()
+	await aim_at(Vector3(0, 0.05, -0.5), game.crystals.green.global_position)
+	game.interact()
+	check(game.held == "red" and game.locations.green == "C_right", "Occupied slot cannot replace or delete another crystal")
+	# All three colors can start a chain through shooting, including null first.
+	for key in ["red", "green", "none"]:
+		game.reset_level()
+		game.resume_game()
+		if key == "none":
+			await move_crystal(key, "C_right")
+		await aim_at(Vector3(0, 0.05, game.crystals[key].global_position.z + 1), game.crystals[key].global_position)
+		game.shoot()
+		await create_timer(1.6).timeout
+		check(game.locations[key] == "consumed" and not game.chain_active, "%s starts and completes a chain" % key)
+		var expected := [0, 0, 1] if key == "red" else ([0, 1, 0] if key == "green" else [1, 0, 0])
+		check(game.heights == expected, "%s changes its own source panel" % key)
+	# A second independent shot uses colors resulting from the first shot.
+	game.reset_level()
+	game.resume_game()
+	await aim_at(Vector3(0, 0.05, -6.5), game.crystals.red.global_position)
+	game.shoot()
+	await create_timer(1.6).timeout
+	await move_crystal("none", "C_right")
+	check(game.locations.none == "C_right", "Remaining crystals can be moved after firing")
+	await aim_at(Vector3(0, 0.05, -3.6), game.crystals.green.global_position)
+	game.shoot()
+	await create_timer(1.6).timeout
+	check(game.heights == [0, 1, 2], "Second shot merges current red panels")
+	# Same-color and neutral-ground destruction consume only the shot crystal.
+	for slot in ["B_extra", "stand"]:
+		game.reset_level()
+		game.resume_game()
+		if slot == "stand":
+			await move_crystal("none", "C_right")
+		await move_crystal("red", slot)
+		await aim_at(Vector3(0, 0.05, game.crystals.red.global_position.z + 1), game.crystals.red.global_position)
+		game.shoot()
+		await settle()
+		check(game.locations.red == "consumed" and game.heights == [0, 0, 0], "Same/neutral color is a safe no-op")
 	print("THREE_ECHO_VERIFY ", "PASS" if failures.is_empty() else failures)
 	quit(0 if failures.is_empty() else 1)
+
+func move_crystal(key: String, slot: String) -> void:
+	var crystal: Node3D = game.crystals[key]
+	await aim_at(Vector3(0, 0.05, crystal.global_position.z + 1), crystal.global_position)
+	game.interact()
+	check(game.held == key, "Pickup " + key)
+	var target: Node3D = game.sockets[slot]
+	await aim_at(Vector3(0, 0.05, target.global_position.z + 1), target.global_position)
+	game.interact()
