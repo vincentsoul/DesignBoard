@@ -2,6 +2,7 @@ extends Node3D
 
 const COLORS = {"blue": Color("3389e6"), "red": Color("e86c60"), "green": Color("4fbd91"), "none": Color("e0e9ed")}
 const NAMES = {"red": "红色晶体", "green": "绿色晶体", "none": "消色晶体"}
+const COLOR_NAMES = {"blue": "蓝色", "red": "红色", "green": "绿色", "none": "无色"}
 const REACH = 2.6
 var platforms: Array[AnimatableBody3D] = []
 var sockets: Dictionary = {}
@@ -34,6 +35,18 @@ var menu: PanelContainer
 var menu_title: Label
 var menu_body: Label
 var start_button: Button
+var rules_button: Button
+var reset_button: Button
+var quit_button: Button
+var rules_visual: HBoxContainer
+var rules_navigation: HBoxContainer
+var rules_cards: Array[PanelContainer] = []
+var rules_labels: Array[Label] = []
+var rules_page := 0
+var rules_open := false
+var rules_page_label: Label
+var rules_previous: Button
+var rules_next: Button
 var toast := "搬动晶体，安排一次连锁，搭出通往出口的楼梯。"
 var pulse_tweens: Array[Tween] = []
 
@@ -307,14 +320,14 @@ func _build_ui() -> void:
 	var footer := VBoxContainer.new()
 	footer_panel.add_child(footer)
 	status = ui_label(footer, "", 17)
-	ui_label(footer, "WASD 移动   鼠标转头   E 拿起 / 放置   左键射击   空格跳跃   R 重置   Esc 暂停", 15, Color("c9d8df"))
+	ui_label(footer, "WASD 移动   鼠标转头   E 拿起 / 放置   左键射击   空格跳跃   R 重置   Esc 暂停 / 说明", 15, Color("c9d8df"))
 	menu = PanelContainer.new()
 	root.add_child(menu)
 	menu.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	menu.offset_left = -290
 	menu.offset_right = 290
-	menu.offset_top = -245
-	menu.offset_bottom = 245
+	menu.offset_top = -330
+	menu.offset_bottom = 330
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("182a35")
 	style.set_corner_radius_all(16)
@@ -328,16 +341,47 @@ func _build_ui() -> void:
 	menu.add_child(content)
 	menu_title = ui_label(content, "", 34)
 	menu_body = ui_label(content, "", 18, Color("c6d5dd"))
+	rules_visual = HBoxContainer.new()
+	rules_visual.add_theme_constant_override("separation", 12)
+	content.add_child(rules_visual)
+	for i in range(3):
+		var card := PanelContainer.new()
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.custom_minimum_size.y = 84
+		rules_visual.add_child(card)
+		rules_cards.append(card)
+		var label := ui_label(card, "", 22, Color("182a35"))
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		rules_labels.append(label)
+	rules_navigation = HBoxContainer.new()
+	content.add_child(rules_navigation)
+	rules_previous = Button.new()
+	rules_previous.text = "上一页"
+	rules_navigation.add_child(rules_previous)
+	rules_previous.pressed.connect(func(): show_rules(rules_page - 1))
+	rules_page_label = ui_label(rules_navigation, "", 18)
+	rules_page_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rules_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rules_next = Button.new()
+	rules_next.text = "下一页"
+	rules_navigation.add_child(rules_next)
+	rules_next.pressed.connect(func(): show_rules(rules_page + 1))
+
 	start_button = Button.new()
 	start_button.text = "开始试玩"
 	start_button.custom_minimum_size.y = 48
 	content.add_child(start_button)
 	start_button.pressed.connect(resume_game)
-	var reset_button := Button.new()
+	rules_button = Button.new()
+	rules_button.text = "玩法说明 · 用四张图看懂连锁"
+	content.add_child(rules_button)
+	rules_button.pressed.connect(func(): show_rules())
+	reset_button = Button.new()
 	reset_button.text = "重置关卡"
 	content.add_child(reset_button)
 	reset_button.pressed.connect(func(): reset_level(); resume_game())
-	var quit_button := Button.new()
+	quit_button = Button.new()
 	quit_button.text = "退出 Demo"
 	content.add_child(quit_button)
 	quit_button.pressed.connect(func(): get_tree().quit())
@@ -350,13 +394,53 @@ func show_menu(title: String, body: String) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_clear_highlight()
 	prompt.text = ""
+	rules_open = false
+	menu_title.add_theme_font_size_override("font_size", 34)
+	rules_visual.hide()
+	rules_navigation.hide()
+	rules_button.show()
+	reset_button.show()
+	quit_button.show()
+	start_button.text = "开始 / 继续试玩"
 	menu_title.text = title
 	menu_body.text = body
 	menu.show()
 	start_button.grab_focus()
 
+func show_rules(page: int = 0) -> void:
+	show_menu("玩法说明", "")
+	rules_open = true
+	rules_page = clampi(page, 0, 3)
+	var pages := [
+		["目标：把平地变成楼梯", "出口在 4 米高处。我们需要 C 高 1 米、B 高 2 米、\nA 高 3 米，才能一步步走上去。\n\n每个平台真正换色一次，就上升 1 米。\n下面是初始状态：三座平台都是 0 米。", ["green", "red", "blue"], [0, 0, 0]],
+		["第一轮：红晶体让 A 变红", "晶体脚下的颜色，决定哪些地面一起变。\n晶体自己的颜色，决定它们变成什么颜色。\n\n红晶体站在蓝色 A 上：击破后，A 蓝 → 红。\nA 升高 1 米。B 原本就是红色，这轮不变、不升高。", ["green", "red", "red"], [0, 0, 1]],
+		["第二轮：绿色晶体接上连锁", "先把绿色晶体搬到蓝色 A 上。\n第一轮 A 换色时，会引爆站在 A 上的绿色晶体。\n\n它让所有红地面变绿，此时包括 A 和 B。\nA 又升高 1 米，B 第一次升高，C 这轮还不动。", ["green", "green", "green"], [0, 1, 2]],
+		["第三轮：消色晶体完成楼梯", "先把白色消色晶体放到红色 B 上。\n第二轮 B 换色时，会引爆这颗消色晶体。\n\n此时 A、B、C 都是绿色，一起消色，各升高 1 米。\n最终 C=1、B=2、A=3。沿楼梯走向出口即可。", ["none", "none", "none"], [1, 2, 3]]
+	]
+	var data: Array = pages[rules_page]
+	menu_title.text = data[0]
+	menu_title.add_theme_font_size_override("font_size", 28)
+	menu_body.text = data[1]
+	for i in range(3):
+		var style := StyleBoxFlat.new()
+		style.bg_color = COLORS[data[2][i]]
+		style.set_corner_radius_all(8)
+		rules_cards[i].add_theme_stylebox_override("panel", style)
+		rules_labels[i].text = "%s 平台\n%d 米" % ["CBA"[i], data[3][i]]
+	rules_page_label.text = "%d / 4" % (rules_page + 1)
+	rules_previous.disabled = rules_page == 0
+	rules_next.disabled = rules_page == 3
+	rules_visual.show()
+	rules_navigation.show()
+	rules_button.hide()
+	reset_button.hide()
+	quit_button.hide()
+	start_button.text = "回到试玩"
+	rules_next.grab_focus() if rules_page < 3 else start_button.grab_focus()
+
 func resume_game() -> void:
 	menu.hide()
+	rules_open = false
 	running = true
 	for tween in pulse_tweens:
 		if tween.is_valid():
@@ -562,7 +646,10 @@ func _run_chain(generation: int) -> void:
 				queue.append(other)
 				scheduled.append(other)
 		wave += 1
-		toast = "第 %d 轮 · %s → %s · 平台上升 1 米" % [wave, source.to_upper(), key.to_upper()]
+		var affected_names: Array[String] = []
+		for index_changed in affected:
+			affected_names.append("CBA"[index_changed])
+		toast = "第 %d 轮 · %s 平台：%s → %s，各上升 1 米" % [wave, "、".join(affected_names), COLOR_NAMES[source], COLOR_NAMES[key]]
 		var elapsed := 0.0
 		while elapsed < 1.4:
 			await get_tree().physics_frame
@@ -618,9 +705,9 @@ func guide_data() -> Array:
 			return [1, "重新布置", "这次没有搭出完整楼梯。按 R 重置，跟随引导重新布置晶体。", null]
 		return [8, "走向出口", "沿平台中央向前走：C → B → A → 出口。\n一米台阶会自动登上，也可按空格跳跃。", exit_target]
 	if held == "green":
-		return [2, "绿色晶体 → A", "继续向前，到最远处的蓝色 A 平台。\n瞄准空的绿色基座，走近后按 E 放置。", sockets.A_green]
+		return [2, "绿色晶体 → A", "继续向前，到最远处的蓝色 A 平台。\n瞄准空的绿色基座，走近后按 E 放置。\n为什么：A 第一次换色会引爆它，接上第二轮。", sockets.A_green]
 	if held == "none":
-		return [4, "消色晶体 → B", "走到中间的红色 B 平台。\n瞄准白色基座，走近后按 E 放置。", sockets.B_none]
+		return [4, "消色晶体 → B", "走到中间的红色 B 平台。\n瞄准白色基座，走近后按 E 放置。\n为什么：B 第二轮换色会引爆它，让三座平台一起消色。", sockets.B_none]
 	if locations.green != "A_green":
 		return [1, "拿起绿色晶体", "先走到中间的红色 B 平台。\n瞄准绿色晶体，出现提示后按 E 拿起。", crystals.green]
 	if locations.none != "B_none":
