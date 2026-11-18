@@ -201,7 +201,7 @@ def build(output, assets, *, color=False):
         for n, step in enumerate(lesson['steps'], 1):
             p(f'{n}  {step}', after=4)
 
-        page(label + '  示范与跟练', '一起解开谜题')
+        page(label, lesson['title'] + '  示范与跟练')
         pic(f'diagram-{i+1}')
         h('跟着想一想')
         p(lesson['example'])
@@ -213,9 +213,9 @@ def build(output, assets, *, color=False):
         ruled(2)
 
         for group in range(2):
-            page(label + '  基础巩固' + ('一' if group == 0 else '二'),
-                 '我能做到了' if group == 0 else '再试一次更熟练')
-            p('每次可以只做 4 题。可以摆、画或说，老师也可以帮忙读题。', 12)
+            page(label, lesson['title'] + '  基础巩固' + ('一' if group == 0 else '二'))
+            encouragement = '我能做到了' if group == 0 else '再试一次更熟练'
+            p(encouragement + '。每次可以只做 4 题。可以摆、画或说，老师也可以帮忙读题。', 12)
             for n in range(group * 4, group * 4 + 4):
                 h(f'基础 {n+1}')
                 p(lesson['basics'][n][0])
@@ -224,12 +224,12 @@ def build(output, assets, *, color=False):
             p(lesson['basic_feedback'][group], 12)
             p('我可以：□ 自己完成  □ 借助学具完成  □ 再试一次', 12)
 
-        page(label + '  综合练习上', '我来当小探险家')
+        page(label, lesson['title'] + '  综合练习上')
         p('老师可以读题。先摆一摆或画一画，再说说理由。', 12)
         for n in (1, 2, 3):
             question(i, lesson, n)
 
-        page(label + '  综合练习下', '再往前走一步')
+        page(label, lesson['title'] + '  综合练习下')
         for n in (4, 5):
             question(i, lesson, n)
         h('动手活动')
